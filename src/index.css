@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gnshi-maroon: #800000;
+  --color-gnshi-gold: #FFD700;
+  --color-gnshi-blue: #003366;
+  --color-gnshi-white: #FFFFFF;
+}
