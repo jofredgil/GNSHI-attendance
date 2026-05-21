@@ -1,0 +1,22 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        display: ['Poppins', 'sans-serif'], 
+      },
+      colors: {
+        maroon: {
+          DEFAULT: '#800000',
+          dark: '#4a0000'
+        }
+      }
+    },
+  },
+  plugins: [],
+}
