@@ -1337,7 +1337,7 @@ function ScannerView({ classInfo, classStudents, attendance, suspended, showToas
               <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 mb-2">
                 Or enter LRN manually
               </p>
-              <div className="flex gap-2.5">
+              <div className="flex flex-col sm:flex-row gap-2.5">
                 <input
                   ref={inputRef}
                   value={input}
@@ -1616,7 +1616,7 @@ function StudentManagement({ classInfo, classStudents, showToast, isArchived }) 
             Grade {classInfo?.grade} — {classInfo?.section} • {classStudents?.length || 0} learners
           </p>
         </div>
-        <div className="flex gap-2.5">
+        <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto mt-3 sm:mt-0">
           <input
             type="file" accept=".csv" ref={importRef}
             onChange={handleImportCSV} className="hidden"
@@ -1652,7 +1652,7 @@ function StudentManagement({ classInfo, classStudents, showToast, isArchived }) 
 
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-sm min-w-[800px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 {["#", "LRN", "Name", "Gender", "Absences", "Tardy", "QR Code", "Action"].map(h => (
@@ -1841,7 +1841,7 @@ function SF2View({ classInfo, classStudents, attendance, showToast, sy, isArchiv
           <h2 className="font-display text-xl font-bold" style={{ color: B.maroon }}>DepEd School Form 2</h2>
           <p className="text-xs text-slate-400 mt-1">Grade {classInfo?.grade} — {classInfo?.section} • Daily Attendance Record</p>
         </div>
-        <div className="flex gap-2.5 flex-wrap">
+        <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto mt-3 sm:mt-0">
           <select value={selMonth} onChange={e => setSelMonth(e.target.value)}
             className="h-10 px-4 border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-maroon transition-colors"
             style={{ color: B.maroonDark }}>
@@ -1867,7 +1867,7 @@ function SF2View({ classInfo, classStudents, attendance, showToast, sy, isArchiv
         </div>
 
         <div className="overflow-x-auto">
-          <table className="border-collapse text-xs">
+          <table className="border-collapse text-xs w-full min-w-[800px]">
             <thead>
               <tr style={{ background: B.maroonFade }}>
                 <th className="border border-slate-200 py-2.5 px-4 text-left font-bold sticky left-0 z-10 min-w-[180px]" style={{ color: B.maroon, background: B.maroonFade }}>LEARNER'S NAME</th>
@@ -2331,7 +2331,7 @@ function SchoolSettings({ showToast }) {
           </p>
 
           {/* Add input */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input
               value={newSubject}
               onChange={e => setNewSubject(e.target.value)}
@@ -2932,7 +2932,7 @@ function AdminMasterList({ allClasses, allStudents, showToast }) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-sm min-w-[800px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 {["#","LRN","Name","Gender","Grade","Section","Absences","Tardy"].map(h => (
