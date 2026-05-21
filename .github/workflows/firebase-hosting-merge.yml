@@ -11,7 +11,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm run build
+      
+      # 1. Install Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      # 2. Install dependencies (This creates node_modules and installs Vite)
+      - name: Install dependencies
+        run: npm ci
+        
+      # 3. Now run the build
+      - name: Build Project
+        run: npm run build
+        
+      # 4. Deploy
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
