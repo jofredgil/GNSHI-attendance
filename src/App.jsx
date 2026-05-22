@@ -2834,27 +2834,14 @@ function CalendarView({ user, sy, showToast }) {
 
 function AdminMasterList({ allClasses, allStudents, showToast }) {
   const studentList = useMemo(() => {
+    // 1. Get all students
     const all = Object.values(allStudents).flat();
-    const currentGrade = typeof selectedGrade !== 'undefined' ? selectedGrade : "";
-    const currentSection = typeof selectedSection !== 'undefined' ? selectedSection : "";
-    const currentSearch = typeof search !== 'undefined' ? search : "";
     
-    // 1. Filter the students based on search and dropdowns
-    const filtered = all.filter(s => {
-      const gradeMatch   = !selectedGrade   || String(s.grade).trim()   === String(selectedGrade).trim();
-      const sectionMatch = !selectedSection || String(s.section).trim() === String(selectedSection).trim();
-      const searchLower  = search.toLowerCase();
-      const textMatch    = !search
-        || s.name?.toLowerCase().includes(searchLower)
-        || String(s.lrn ?? "").includes(search);
-      return gradeMatch && sectionMatch && textMatch;
-    });
-
-    // 2. Sort the filtered list A-Z by name
-    return filtered.sort((a, b) => 
+    // 2. Sort the entire list A-Z by name
+    return all.sort((a, b) => 
       (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" })
     );
-  }, [allStudents, selectedGrade, selectedSection, search]);
+  }, [allStudents]);
 
   // Shared style for always-floated labels
   const floatedLabelStyle = {
