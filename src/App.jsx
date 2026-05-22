@@ -2835,6 +2835,9 @@ function CalendarView({ user, sy, showToast }) {
 function AdminMasterList({ allClasses, allStudents, showToast }) {
   const studentList = useMemo(() => {
     const all = Object.values(allStudents).flat();
+    const currentGrade = typeof selectedGrade !== 'undefined' ? selectedGrade : "";
+    const currentSection = typeof selectedSection !== 'undefined' ? selectedSection : "";
+    const currentSearch = typeof search !== 'undefined' ? search : "";
     
     // 1. Filter the students based on search and dropdowns
     const filtered = all.filter(s => {
