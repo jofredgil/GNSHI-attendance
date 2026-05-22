@@ -2833,28 +2833,37 @@ function CalendarView({ user, sy, showToast }) {
 }
 
 function AdminMasterList({ allClasses, allStudents, showToast }) {
-  const studentList = useMemo(() => {
-    // Ensure allStudents is available
+  const [selectedGrade, setSelectedGrade] = useState("");
+  const [selectedSection, setSelectedSection] = useState("");
+  const [search, setSearch] = useState("");
+
+  const gradeOptions = ["7", "8", "9", "10", "11", "12"];
+  const sectionOptions = useMemo(() => {
+    if (!allClasses) return [];
+    if (!selectedGrade) return allClasses; // Show all if no grade selected
+    
+    // Only show sections that belong to the selected grade
+    return allClasses.filter(c => String(c.grade).trim() === String(selectedGrade).trim());
+  }, [allClasses, selectedGrade]);
+ const studentList = useMemo(() => {
     if (!allStudents) return [];
     
+    // Flatten the student data from all sections
     const all = Object.values(allStudents).flat();
     
-    // Default to empty strings if variables are undefined during first render
-    const curGrade = typeof selectedGrade !== 'undefined' ? selectedGrade : "";
-    const curSection = typeof selectedSection !== 'undefined' ? selectedSection : "";
-    const curSearch = typeof search !== 'undefined' ? search : "";
-    
+    // Filter the list based on state variables
     const filtered = all.filter(s => {
-      const gradeMatch   = !curGrade   || String(s.grade).trim()   === String(curGrade).trim();
-      const sectionMatch = !curSection || String(s.section).trim() === String(curSection).trim();
-      const searchLower  = curSearch.toLowerCase();
-      const textMatch    = !curSearch
-        || s.name?.toLowerCase().includes(searchLower)
-        || String(s.lrn ?? "").includes(curSearch);
+      const gradeMatch = !selectedGrade || String(s.grade).trim() === String(selectedGrade).trim();
+      const sectionMatch = !selectedSection || String(s.section).trim() === String(selectedSection).trim();
+      const searchLower = search.toLowerCase();
+      const textMatch = !search || 
+                        s.name?.toLowerCase().includes(searchLower) || 
+                        String(s.lrn ?? "").includes(search);
+      
       return gradeMatch && sectionMatch && textMatch;
     });
 
-    // Sort A-Z by name
+    // Sort alphabetically by name
     return filtered.sort((a, b) => 
       (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" })
     );
