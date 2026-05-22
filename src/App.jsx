@@ -1101,44 +1101,54 @@ function ScannerView({ classInfo, classStudents, attendance, suspended, showToas
   }, [presentCutoff, lateCutoff]);
 
   const handleScan = useCallback((rawData) => {
-  // ── Regex-based LRN extractor — handles all payload shapes ──
-  const stringPayload = typeof rawData === "object"
-    ? JSON.stringify(rawData)
-    : String(rawData);
+    // 1. Safely extract the string, no matter what version of the library is running
+    let scannedText = "";
+    if (typeof rawData === "string") {
+      scannedText = rawData;
+    } else if (Array.isArray(rawData) && rawData.length > 0) {
+      scannedText = rawData[0].rawValue || rawData[0].text || String(rawData[0]);
+    } else if (rawData && typeof rawData === "object") {
+      scannedText = rawData.text || rawData.rawValue || JSON.stringify(rawData);
+    }
 
-  const match = stringPayload.match(/\b\d{12}\b/);
-  if (!match) return;
+    if (!scannedText) return;
 
-  const lrn = match[0];
+    // 2. Look for exactly 12 digits anywhere in the scanned text
+    const match = scannedText.match(/\d{12}/);
+    
+    if (!match) {
+      // If it scans something that isn't a 12-digit LRN, tell the user!
+      showToast(`Invalid QR Code scanned: ${scannedText}`, "error");
+      return;
+    }
 
-  console.debug("Scanned LRN:", lrn);
-  console.debug("Class LRNs:", classStudents.map(s => `"${String(s.lrn).trim()}"`));
+    const lrn = match[0];
+    
+    const student = classStudents.find(
+      s => String(s.lrn).trim() === lrn
+    );
 
-  const student = classStudents.find(
-    s => String(s.lrn).trim() === lrn
-  );
+    if (!student) {
+      showToast(`LRN "${lrn}" not found in this section.`, "error");
+      setInput("");
+      return;
+    }
 
-  if (!student) {
-    showToast(`LRN "${lrn}" not found in this class.`, "error");
+    if (scanned[lrn]) {
+      showToast(`${student.name} already scanned!`, "error");
+      setInput("");
+      return;
+    }
+
+    const status = getTimeStatus();
+    setScanned(prev => ({
+      ...prev,
+      [lrn]: { student, status, time: new Date().toLocaleTimeString() },
+    }));
+    showToast(`✅ ${student.name} — ${status}`);
     setInput("");
-    return;
-  }
-
-  if (scanned[lrn]) {
-    showToast(`${student.name} already scanned!`, "error");
-    setInput("");
-    return;
-  }
-
-  const status = getTimeStatus();
-  setScanned(prev => ({
-    ...prev,
-    [lrn]: { student, status, time: new Date().toLocaleTimeString() },
-  }));
-  showToast(`✅ ${student.name} — ${status}`);
-  setInput("");
-  inputRef.current?.focus();
-}, [classStudents, scanned, getTimeStatus, showToast]);
+    inputRef.current?.focus();
+  }, [classStudents, scanned, getTimeStatus, showToast]);
 
   const endSession = async () => {
   const scannedLRNs = new Set(Object.keys(scanned));
@@ -1312,17 +1322,16 @@ function ScannerView({ classInfo, classStudents, attendance, suspended, showToas
               style={{ maxWidth: 360, margin: "0 auto" }}>
               <Scanner
                 constraints={{ facingMode }}
-                onResult={(result) => {
-                  // Pass raw result — handleScan normalises all shapes
-                  handleScan(result);
-                }}
+                onScan={(result) => handleScan(result)}
+                onResult={(text, result) => handleScan(text || result)}
                 onError={(err) => {
                   if (err?.name !== "NotFoundException") {
-                    showToast("Camera error: " + (err?.message || String(err)), "error");
+                    console.error("Camera error:", err);
                   }
                 }}
                 styles={{ container: { borderRadius: 12 } }}
               />
+              
               {/* Flip camera button */}
               <button
                 onClick={() => setFacingMode(f => f === "environment" ? "user" : "environment")}
