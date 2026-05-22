@@ -1733,7 +1733,7 @@ function StudentManagement({ classInfo, classStudents, showToast, isArchived }) 
 
 // ─── SF2 VIEW ─────────────────────────────────────────────────────────────────
 function SF2View({ classInfo, classStudents, attendance, showToast, sy, isArchived }) {
-  const year = parseInt(sy?.split("-")[0]) || 2025;
+  const year = parseInt(sy?.split("-")[1]) || new Date().getFullYear();
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const [selMonth, setSelMonth] = useState(
   () => localStorage.getItem("sf2-month") || "January"
