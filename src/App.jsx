@@ -603,45 +603,78 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: Ic.home },
     ...(user.role === "admin" ? [
-      { id: "masterlist",  label: "Master List",        icon: Ic.users },
-      { id: "staff",       label: "Staff Accounts",     icon: Ic.users },
-      { id: "qr",          label: "QR Codes",           icon: Ic.scan },
-      { id: "subjects",    label: "Subject Assignment",  icon: Ic.book },
-      { id: "settings",    label: "School Settings",    icon: Ic.settings },
+      { id: "masterlist",  label: "Master List",       icon: Ic.users    },
+      { id: "staff",       label: "Staff Accounts",    icon: Ic.users    },
+      { id: "qr",          label: "QR Codes",          icon: Ic.scan     },
+      { id: "subjects",    label: "Subject Assignment", icon: Ic.book    },
+      { id: "settings",    label: "School Settings",   icon: Ic.settings },
     ] : [
-      { id: "scan",        label: "Scan Attendance",    icon: Ic.scan },
+      { id: "scan",        label: "Scan Attendance",   icon: Ic.scan     },
     ]),
-    { id: "students",  label: "Student Records",  icon: Ic.book },
-    { id: "sf2",       label: "SF2 Report",       icon: Ic.file },
-    { id: "calendar",  label: "Calendar",         icon: Ic.calendar },
+    { id: "students",  label: "Student Records", icon: Ic.book     },
+    { id: "sf2",       label: "SF2 Report",      icon: Ic.file     },
+    { id: "calendar",  label: "Calendar",        icon: Ic.calendar },
   ];
 
-  return (
-    <aside
-      id="app-sidebar"
-      className="flex-shrink-0 h-screen flex flex-col overflow-hidden relative z-50 transition-all duration-300"
-      style={{
-        width: sideOpen ? 252 : 64,
-        background: `linear-gradient(180deg, ${B.maroonDark} 0%, ${B.maroon} 55%, #4A0B0D 100%)`,
-        boxShadow: "4px 0 24px rgba(0,0,0,0.15)",
-      }}
-    >
-      {/* Logo row */}
-      <div className={`flex items-center gap-3 border-b border-white/8 min-h-[68px] flex-shrink-0 ${sideOpen ? "px-4 py-4" : "px-3.5 py-4 justify-center"}`}>
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-          style={{ background: `linear-gradient(135deg, ${B.gold}, ${B.goldDark})`, boxShadow: `0 4px 12px ${B.gold}60` }}
-        >🏫</div>
-        {sideOpen && (
-          <div className="overflow-hidden">
-            <p className="font-display text-white font-bold text-sm leading-tight whitespace-nowrap">GNSHI Smart</p>
-            <p className="text-xs font-bold tracking-[0.15em] uppercase whitespace-nowrap" style={{ color: B.gold, fontSize: 9 }}>Attendance System</p>
-          </div>
-        )}
-      </div>
+  // Close sidebar when a nav item is tapped on mobile
+  const handleNavClick = (id) => {
+    setActiveTab(id);
+    // Close on mobile (viewport < 768px)
+    if (window.innerWidth < 768) setSideOpen(false);
+  };
 
-      {/* User chip */}
+  const handleClassClick = (classId) => {
+    setSelectedClassId(classId);
+    setActiveTab("scan");
+    if (window.innerWidth < 768) setSideOpen(false);
+  };
+
+  return (
+    <>
+      {/* ── Mobile backdrop ──────────────────────────────────────────────── */}
       {sideOpen && (
+        <div
+          className="fixed inset-0 bg-black/55 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setSideOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar panel ────────────────────────────────────────────────── */}
+      <aside
+        id="app-sidebar"
+        className={`
+          fixed inset-y-0 left-0 z-50 flex flex-col
+          transition-transform duration-300 ease-in-out
+          md:relative md:translate-x-0 md:flex-shrink-0
+          ${sideOpen ? "translate-x-0" : "-translate-x-full"}
+        `}
+        style={{
+          width: 260,
+          background: `linear-gradient(180deg, ${B.maroonDark} 0%, ${B.maroon} 55%, #4A0B0D 100%)`,
+          boxShadow: "4px 0 24px rgba(0,0,0,0.18)",
+        }}
+      >
+        {/* Logo row + mobile close button */}
+        <div className="flex items-center gap-3 border-b border-white/10 min-h-[64px] flex-shrink-0 px-4 py-3">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${B.gold}, ${B.goldDark})`, boxShadow: `0 4px 12px ${B.gold}60` }}
+          >🏫</div>
+          <div className="overflow-hidden flex-1">
+            <p className="font-display text-white font-bold text-sm leading-tight whitespace-nowrap">GNSHI Smart</p>
+            <p className="font-bold tracking-[0.15em] uppercase whitespace-nowrap" style={{ color: B.gold, fontSize: 9 }}>Attendance System</p>
+          </div>
+          {/* X button — mobile only */}
+          <button
+            onClick={() => setSideOpen(false)}
+            className="md:hidden flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+            style={{ background: "rgba(255,255,255,0.10)" }}
+          >
+            <Ic.close className="w-4 h-4 text-white" />
+          </button>
+        </div>
+
+        {/* User chip */}
         <div className="px-3 py-3 flex-shrink-0">
           <div className="bg-white/8 rounded-xl px-3 py-2.5">
             <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/40">Signed in as</p>
@@ -652,248 +685,253 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
             >{user.role}</span>
           </div>
         </div>
-      )}
 
-      {/* Today's event banner */}
-      {sideOpen && todayEvent && user.role !== "admin" && (
-        <div className="px-3 pb-2 flex-shrink-0">
-          <button
-            onClick={() => {
-              if (classes.length > 0) {
-                setSelectedClassId(classes[0].id);
-                setActiveTab("scan");
-              }
-            }}
-            className="w-full text-left rounded-xl px-3 py-2.5 transition-all"
-            style={{ background: `${B.gold}22`, border: `1px solid ${B.gold}50` }}
-          >
-            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: B.goldDark }}>Today's Event</p>
-            <p className="text-xs font-bold mt-0.5 leading-tight" style={{ color: B.gold }}>{todayEvent.name}</p>
-            {todayEvent.timeSlot && (
-              <p className="text-[9px] capitalize mt-0.5" style={{ color: `${B.gold}CC` }}>
-                {todayEvent.timeSlot} session → tap to scan
-              </p>
-            )}
-          </button>
-        </div>
-      )}
-
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2 space-y-0.5 hide-scrollbar">
-        {navItems.map(({ id, label, icon: Icon }) => (
-          <SideBtn key={id} icon={Icon} label={sideOpen ? label : ""} active={activeTab === id} onClick={() => setActiveTab(id)} />
-        ))}
-
-        {/* ── Subject Teacher: My Subjects ── */}
-        {user.role !== "admin" && myAssignments.length > 0 && sideOpen && (
-          <div className="mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-            <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>
-              My Subjects
-            </p>
-            {myAssignments.map(assignment => {
-              const tabId = `subject_${assignment.id}`;
-              const isActive = activeTab === tabId;
-              return (
-                <button
-                  key={assignment.id}
-                  onClick={() => {
-                    setActiveTab(tabId);
-                    setSelectedClassId(assignment.classId);
-                  }}
-                  className="w-full flex items-start gap-2.5 rounded-xl border-0 cursor-pointer transition-all text-left px-3 py-2.5 mb-0.5"
-                  style={{
-                    background: isActive ? `linear-gradient(135deg, ${B.gold}, ${B.goldDark})` : "rgba(255,255,255,0.06)",
-                    color: isActive ? B.maroonDark : "rgba(255,255,255,0.75)",
-                  }}
-                >
-                  <Ic.book
-                    className="w-4 h-4 flex-shrink-0 mt-0.5"
-                    style={{ color: isActive ? B.maroonDark : "rgba(255,255,255,0.5)" }}
-                  />
-                  <div className="overflow-hidden min-w-0">
-                    <p className={`text-xs font-bold truncate leading-tight ${isActive ? "" : ""}`}>
-                      {assignment.subjectName}
-                    </p>
-                    <p
-                      className="text-[10px] font-medium truncate mt-0.5"
-                      style={{ color: isActive ? `${B.maroonDark}99` : "rgba(255,255,255,0.45)" }}
-                    >
-                      Gr.{assignment.grade} — {assignment.section}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Subject Teacher: collapsed icon indicators */}
-        {user.role !== "admin" && myAssignments.length > 0 && !sideOpen && (
-          <div className="mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-            {myAssignments.map(assignment => {
-              const tabId = `subject_${assignment.id}`;
-              const isActive = activeTab === tabId;
-              return (
-                <button
-                  key={assignment.id}
-                  onClick={() => {
-                    setActiveTab(tabId);
-                    setSelectedClassId(assignment.classId);
-                  }}
-                  className="w-full flex items-center justify-center rounded-xl border-0 cursor-pointer transition-all py-2.5 mb-0.5"
-                  style={{
-                    background: isActive ? `linear-gradient(135deg, ${B.gold}, ${B.goldDark})` : "transparent",
-                    color: isActive ? B.maroonDark : "rgba(255,255,255,0.55)",
-                  }}
-                  title={`${assignment.subjectName} — Gr.${assignment.grade} ${assignment.section}`}
-                >
-                  <Ic.book className="w-5 h-5" />
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Grade accordions (adviser only — not shown for pure subject teachers with no classes) */}
-        {Object.keys(gradeMap).sort((a, b) => parseInt(a) - parseInt(b)).map(grade => (
-          <div key={grade}>
+        {/* Today's event banner */}
+        {todayEvent && user.role !== "admin" && (
+          <div className="px-3 pb-2 flex-shrink-0">
             <button
-              onClick={() => toggleGrade(grade)}
-              className="w-full flex items-center gap-2.5 rounded-xl border-0 cursor-pointer transition-all text-white/60 hover:text-white/90 hover:bg-white/6"
-              style={{ padding: sideOpen ? "9px 12px" : "9px 8px", background: "transparent" }}
+              onClick={() => {
+                if (classes.length > 0) {
+                  setSelectedClassId(classes[0].id);
+                  setActiveTab("scan");
+                  if (window.innerWidth < 768) setSideOpen(false);
+                }
+              }}
+              className="w-full text-left rounded-xl px-3 py-2.5 transition-all"
+              style={{ background: `${B.gold}22`, border: `1px solid ${B.gold}50` }}
             >
-              <span className="text-sm flex-shrink-0">📚</span>
-              {sideOpen && (
-                <>
-                  <span className="flex-1 text-left text-sm font-semibold">Grade {grade}</span>
-                  <Ic.chevDown
-                    className="w-3.5 h-3.5 transition-transform duration-200"
-                    style={{ transform: expandedGrades[grade] ? "rotate(180deg)" : "rotate(0deg)" }}
-                  />
-                </>
+              <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: B.goldDark }}>Today's Event</p>
+              <p className="text-xs font-bold mt-0.5 leading-tight" style={{ color: B.gold }}>{todayEvent.name}</p>
+              {todayEvent.timeSlot && (
+                <p className="text-[9px] capitalize mt-0.5" style={{ color: `${B.gold}CC` }}>
+                  {todayEvent.timeSlot} session → tap to scan
+                </p>
               )}
             </button>
+          </div>
+        )}
 
-            {sideOpen && (
-              <div
-                className={`grid transition-all duration-300 ease-in-out ${
-                  expandedGrades[grade]
-                    ? "grid-rows-[1fr] opacity-100 mt-1"
-                    : "grid-rows-[0fr] opacity-0"
-                }`}
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2 space-y-0.5 hide-scrollbar">
+          {navItems.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => handleNavClick(id)}
+              className="w-full flex items-center gap-2.5 rounded-xl border-0 cursor-pointer transition-all"
+              style={{
+                padding: "10px 12px",
+                background: activeTab === id ? `linear-gradient(135deg, ${B.gold}, ${B.goldDark})` : "transparent",
+                color: activeTab === id ? B.maroonDark : "rgba(255,255,255,0.65)",
+              }}
+            >
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              <span className="flex-1 text-left text-sm font-semibold whitespace-nowrap">{label}</span>
+            </button>
+          ))}
+
+          {/* My Subjects — subject teacher */}
+          {user.role !== "admin" && myAssignments.length > 0 && (
+            <div className="mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+              <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>
+                My Subjects
+              </p>
+              {myAssignments.map(assignment => {
+                const tabId = `subject_${assignment.id}`;
+                const isActive = activeTab === tabId;
+                return (
+                  <button
+                    key={assignment.id}
+                    onClick={() => {
+                      setActiveTab(tabId);
+                      setSelectedClassId(assignment.classId);
+                      if (window.innerWidth < 768) setSideOpen(false);
+                    }}
+                    className="w-full flex items-start gap-2.5 rounded-xl border-0 cursor-pointer transition-all text-left px-3 py-2.5 mb-0.5"
+                    style={{
+                      background: isActive ? `linear-gradient(135deg, ${B.gold}, ${B.goldDark})` : "rgba(255,255,255,0.06)",
+                      color: isActive ? B.maroonDark : "rgba(255,255,255,0.75)",
+                    }}
+                  >
+                    <Ic.book className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: isActive ? B.maroonDark : "rgba(255,255,255,0.5)" }} />
+                    <div className="overflow-hidden min-w-0">
+                      <p className="text-xs font-bold truncate leading-tight">{assignment.subjectName}</p>
+                      <p className="text-[10px] font-medium truncate mt-0.5" style={{ color: isActive ? `${B.maroonDark}99` : "rgba(255,255,255,0.45)" }}>
+                        Gr.{assignment.grade} — {assignment.section}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Grade accordions */}
+          {Object.keys(gradeMap).sort((a, b) => parseInt(a) - parseInt(b)).map(grade => (
+            <div key={grade}>
+              <button
+                onClick={() => toggleGrade(grade)}
+                className="w-full flex items-center gap-2.5 rounded-xl border-0 cursor-pointer transition-all text-white/60 hover:text-white/90 hover:bg-white/6"
+                style={{ padding: "10px 12px", background: "transparent" }}
               >
+                <span className="text-sm flex-shrink-0">📚</span>
+                <span className="flex-1 text-left text-sm font-semibold">Grade {grade}</span>
+                <Ic.chevDown
+                  className="w-3.5 h-3.5 transition-transform duration-200"
+                  style={{ transform: expandedGrades[grade] ? "rotate(180deg)" : "rotate(0deg)" }}
+                />
+              </button>
+
+              <div className={`grid transition-all duration-300 ease-in-out ${expandedGrades[grade] ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="overflow-hidden flex flex-col gap-0.5">
                   {gradeMap[grade].map(cls => (
                     <button
                       key={cls.id}
-                      onClick={() => { setSelectedClassId(cls.id); setActiveTab("scan"); }}
+                      onClick={() => handleClassClick(cls.id)}
                       className="w-full flex items-center gap-2 rounded-lg border-0 cursor-pointer transition-all"
                       style={{
-                        padding: "7px 12px 7px 28px",
+                        padding: "8px 12px 8px 28px",
                         background: selectedClassId === cls.id ? `${B.gold}22` : "transparent",
                         borderLeft: selectedClassId === cls.id ? `3px solid ${B.gold}` : "3px solid transparent",
                         marginLeft: 4,
                       }}
                     >
-                      <span
-                        className="text-xs font-semibold text-left"
-                        style={{ color: selectedClassId === cls.id ? B.gold : "rgba(255,255,255,0.55)" }}
-                      >{cls.section}</span>
+                      <span className="text-xs font-semibold text-left" style={{ color: selectedClassId === cls.id ? B.gold : "rgba(255,255,255,0.55)" }}>
+                        {cls.section}
+                      </span>
                       {cls.track && (
-                        <span
-                          className="text-[9px] rounded px-1.5 py-0.5"
-                          style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.45)" }}
-                        >{cls.strand || cls.track}</span>
+                        <span className="text-[9px] rounded px-1.5 py-0.5" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.45)" }}>
+                          {cls.strand || cls.track}
+                        </span>
                       )}
                     </button>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
-        ))}
-      </nav>
+            </div>
+          ))}
+        </nav>
 
-      {/* Footer */}
-      <div className="px-2 py-2 border-t border-white/8 space-y-0.5 flex-shrink-0">
-        <SideBtn icon={Ic.menu} label={sideOpen ? "Collapse" : ""} active={false} onClick={() => setSideOpen(o => !o)} />
-        <SideBtn icon={Ic.logout} label={sideOpen ? "Sign Out" : ""} active={false} onClick={onLogout} />
-      </div>
-    </aside>
+        {/* Footer — sign out only (collapse button removed) */}
+        <div className="px-2 py-3 border-t border-white/10 flex-shrink-0">
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center gap-2.5 rounded-xl border-0 cursor-pointer transition-all"
+            style={{ padding: "10px 12px", background: "transparent", color: "rgba(255,255,255,0.65)" }}
+          >
+            <Ic.logout className="w-5 h-5 flex-shrink-0" />
+            <span className="flex-1 text-left text-sm font-semibold">Sign Out</span>
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
 
-function SideBtn({ icon: Icon, label, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-2.5 rounded-xl border-0 cursor-pointer transition-all"
-      style={{
-        padding: "9px 12px",
-        background: active ? `linear-gradient(135deg, ${B.gold}, ${B.goldDark})` : "transparent",
-        color: active ? B.maroonDark : "rgba(255,255,255,0.65)",
-      }}
-    >
-      <Icon className="w-5 h-5 flex-shrink-0" />
-      {label && <span className="flex-1 text-left text-sm font-semibold whitespace-nowrap">{label}</span>}
-    </button>
-  );
-}
-
 // ─── TOP HEADER ───────────────────────────────────────────────────────────────
-function TopHeader({ user, activeTab, selectedClass, suspended, sy, setSy, quarter, setQuarter, onUpdateSyQuarter }) {
-  const tabTitles = {
-    dashboard: "Dashboard", scan: "Scan Attendance", sf2: "SF2 Report",
-    students: "Student Records", qr: "QR Code Generator", settings: "School Settings",
-    calendar: "Academic Calendar", staff: "Staff Account Manager",
-  };
+function TopHeader({ user, activeTab, selectedClass, suspended, sy, setSy, quarter, setQuarter, onUpdateSyQuarter, onMenuClick }) {
+  const tabTitles = {
+    dashboard: "Dashboard",
+    scan: "Attendance",
+    sf2: "SF2 Report",
+    students: "Students",
+    qr: "QR Codes",
+    settings: "Settings",
+    calendar: "Calendar",
+    staff: "Staff",
+    masterlist: "Master List",
+    subjects: "Subjects",
+  };
 
-  return (
-    <header id="app-header" className="bg-white border-b border-slate-100 px-6 h-16 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm relative z-10">
-      <div>
-        <h1 className="font-display text-lg font-bold tracking-tight" style={{ color: B.maroonDark }}>
-          {tabTitles[activeTab] || "GNSHI SAMS"}
-          {(activeTab === "scan" || activeTab === "sf2" || activeTab === "students") && selectedClass && (
-            <span className="ml-2 text-xs font-semibold text-slate-400">Grade {selectedClass.grade} — {selectedClass.section}</span>
-          )}
-        </h1>
-        <p className="text-xs text-slate-400 mt-0.5">
-          {TODAY.toLocaleDateString("en-PH", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-          {suspended && <span className="ml-2 font-bold" style={{ color: B.maroon }}>🚨 SUSPENSION ACTIVE</span>}
-        </p>
-      </div>
+  const title = tabTitles[activeTab] || "GNSHI SAMS";
+  const subtitle = (activeTab === "scan" || activeTab === "sf2" || activeTab === "students") && selectedClass
+    ? `Grade ${selectedClass.grade} — ${selectedClass.section}`
+    : null;
 
-      <div className="flex items-center gap-2.5">
-        {/* SY dropdown */}
-        <div className="relative">
-          <select value={sy} onChange={e => { setSy(e.target.value); onUpdateSyQuarter(e.target.value, quarter); }}
-            className="appearance-none h-9 pl-3 pr-7 rounded-lg text-xs font-bold outline-none cursor-pointer border border-slate-200 bg-slate-50 text-slate-700">
-            {SY_OPTIONS.map(s => <option key={s}>SY {s}</option>)}
-          </select>
-          <Ic.chevDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
-        </div>
+  return (
+    <header
+      id="app-header"
+      className="bg-white border-b border-slate-100 flex-shrink-0 shadow-sm relative z-10"
+    >
+      {/* ── Main row ── */}
+      <div className="flex items-center gap-2 px-3 md:px-6 h-14 md:h-16">
 
-        {/* Quarter dropdown */}
-        <div className="relative">
-          <select value={quarter} onChange={e => { setQuarter(e.target.value); onUpdateSyQuarter(sy, e.target.value); }}
-            className="appearance-none h-9 pl-3 pr-7 rounded-lg text-xs font-bold outline-none cursor-pointer"
-            style={{ background: `${B.gold}18`, border: `1.5px solid ${B.gold}55`, color: B.goldDark }}>
-            {QUARTER_OPTIONS.map(q => <option key={q}>{q}</option>)}
-          </select>
-          <Ic.chevDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: B.goldDark }} />
-        </div>
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={onMenuClick}
+          className="md:hidden flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+          style={{ background: B.maroonFade, color: B.maroon }}
+          aria-label="Open menu"
+        >
+          <Ic.menu className="w-5 h-5" />
+        </button>
 
-        {suspended && (
-          <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: B.maroonFade, color: B.maroon, border: `1px solid ${B.maroon}25` }}>⛔ Suspended</span>
-        )}
+        {/* Title block */}
+        <div className="flex-1 min-w-0">
+          <h1 className="font-display font-bold tracking-tight leading-tight truncate text-base md:text-lg" style={{ color: B.maroonDark }}>
+            {title}
+            {subtitle && (
+              <span className="ml-2 text-xs font-semibold text-slate-400 hidden sm:inline">{subtitle}</span>
+            )}
+          </h1>
+          {subtitle && (
+            <p className="text-[10px] font-semibold text-slate-400 sm:hidden truncate">{subtitle}</p>
+          )}
+          <p className="text-[10px] md:text-xs text-slate-400 hidden sm:block">
+            {TODAY.toLocaleDateString("en-PH", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            {suspended && <span className="ml-2 font-bold" style={{ color: B.maroon }}>🚨 SUSPENDED</span>}
+          </p>
+        </div>
 
-        {/* Avatar */}
-        <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})`, boxShadow: `0 2px 8px ${B.maroon}40` }}>
-          {user.name?.[0] || "?"}
-        </div>
-      </div>
-    </header>
-  );
+        {/* Right controls */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* SY dropdown */}
+          <div className="relative">
+            <select
+              value={sy}
+              onChange={e => { setSy(e.target.value); onUpdateSyQuarter(e.target.value, quarter); }}
+              className="appearance-none h-8 md:h-9 pl-2 pr-5 md:pl-3 md:pr-7 rounded-lg text-[10px] md:text-xs font-bold outline-none cursor-pointer border border-slate-200 bg-slate-50 text-slate-700"
+            >
+              {SY_OPTIONS.map(s => <option key={s}>SY {s}</option>)}
+            </select>
+            <Ic.chevDown className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+          </div>
+
+          {/* Quarter dropdown */}
+          <div className="relative">
+            <select
+              value={quarter}
+              onChange={e => { setQuarter(e.target.value); onUpdateSyQuarter(sy, e.target.value); }}
+              className="appearance-none h-8 md:h-9 pl-2 pr-5 md:pl-3 md:pr-7 rounded-lg text-[10px] md:text-xs font-bold outline-none cursor-pointer"
+              style={{ background: `${B.gold}18`, border: `1.5px solid ${B.gold}55`, color: B.goldDark }}
+            >
+              {QUARTER_OPTIONS.map(q => <option key={q}>{q}</option>)}
+            </select>
+            <Ic.chevDown className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: B.goldDark }} />
+          </div>
+
+          {/* Avatar */}
+          <div
+            className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})`, boxShadow: `0 2px 8px ${B.maroon}40` }}
+          >
+            {user.name?.[0] || "?"}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Mobile date + suspension row ── */}
+      <div className="sm:hidden px-3 pb-2 flex items-center justify-between gap-2">
+        <p className="text-[10px] text-slate-400">
+          {TODAY.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" })}
+        </p>
+        {suspended && (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: B.maroonFade, color: B.maroon }}>
+            🚨 Suspended
+          </span>
+        )}
+      </div>
+    </header>
+  );
 }
 
 // ─── ADMIN DASHBOARD ──────────────────────────────────────────────────────────
@@ -3716,8 +3754,12 @@ const list = students[selectedClassId] || [];
 );
 
   return (
-    <div id="app-wrapper" className="flex h-screen overflow-hidden font-sans" style={{ background: B.offWhite }}>
-      <Sidebar
+    <div
+      id="app-wrapper"
+      className="flex h-screen overflow-hidden font-sans"
+      style={{ background: B.offWhite }}
+    >
+      <Sidebar
         user={user}
         classes={classes}
         selectedClassId={selectedClassId}
@@ -3731,129 +3773,121 @@ const list = students[selectedClassId] || [];
         myAssignments={myAssignments}
       />
 
-      <div id="app-content" className="flex-1 flex flex-col overflow-hidden">
-        <TopHeader
-          user={user} activeTab={activeTab} selectedClass={selectedClass}
-          suspended={suspended} sy={sy} setSy={setSy} quarter={quarter} setQuarter={setQuarter}
-          onUpdateSyQuarter={updateSyQuarter}
-        />
+      <div id="app-content" className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <TopHeader
+          user={user}
+          activeTab={activeTab}
+          selectedClass={selectedClass}
+          suspended={suspended}
+          sy={sy}
+          setSy={setSy}
+          quarter={quarter}
+          setQuarter={setQuarter}
+          onUpdateSyQuarter={updateSyQuarter}
+          onMenuClick={() => setSideOpen(true)}
+        />
 
-        <main id="app-main" className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <main id="app-main" className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           <div className="max-w-screen-2xl mx-auto">
 
-              {activeTab === "dashboard" && user.role === "admin" && (
-                <AdminDashboard allClasses={classes} allStudents={allStudents} attendance={attendance} suspended={suspended} setSuspended={setSuspended} showToast={showToast} sy={sy} quarter={quarter} />
-              )}
+            {activeTab === "dashboard" && user.role === "admin" && (
+              <AdminDashboard allClasses={classes} allStudents={allStudents} attendance={attendance} suspended={suspended} setSuspended={setSuspended} showToast={showToast} sy={sy} quarter={quarter} />
+            )}
 
-              {activeTab === "dashboard" && user.role !== "admin" && (
-                <AdviserDashboard user={user} classes={classes} students={students} attendance={attendance} showToast={showToast} setActiveTab={setActiveTab} />
-              )}
+            {activeTab === "dashboard" && user.role !== "admin" && (
+              <AdviserDashboard user={user} classes={classes} students={students} attendance={attendance} showToast={showToast} setActiveTab={setActiveTab} />
+            )}
 
-              {activeTab === "masterlist" && user.role === "admin" && (
-                <AdminMasterList allClasses={classes} allStudents={students} showToast={showToast} />
-              )}
+            {activeTab === "masterlist" && user.role === "admin" && (
+              <AdminMasterList allClasses={classes} allStudents={students} showToast={showToast} />
+            )}
 
-              {activeTab === "subjects" && user.role === "admin" && (
-                <SubjectAssignment allClasses={classes} showToast={showToast} />
-              )}
+            {activeTab === "subjects" && user.role === "admin" && (
+              <SubjectAssignment allClasses={classes} showToast={showToast} />
+            )}
 
-              {/* ── Subject Teacher: per-subject dashboard ── */}
-              {myAssignments.map(assignment => {
-                if (activeTab !== `subject_${assignment.id}`) return null;
-                const classInfo = classes.find(c => c.id === assignment.classId)
-                  || { id: assignment.classId, grade: assignment.grade, section: assignment.section };
-                const classStudents = students[assignment.classId] || [];
-                return (
-                  <SubjectDashboard
-                    key={assignment.id}
-                    assignment={assignment}
-                    classInfo={classInfo}
-                    classStudents={classStudents}
-                    attendance={attendance}
-                    suspended={suspended}
-                    showToast={showToast}
-                    isArchived={isArchived}
-                  />
-                );
-              })}
-
-              {activeTab === "scan" && selectedClass && (
-                <ScannerView
-                  classInfo={selectedClass}
-                  classStudents={selectedStudents}
+            {myAssignments.map(assignment => {
+              if (activeTab !== `subject_${assignment.id}`) return null;
+              const classInfo = classes.find(c => c.id === assignment.classId)
+                || { id: assignment.classId, grade: assignment.grade, section: assignment.section };
+              const classStudents = students[assignment.classId] || [];
+              return (
+                <SubjectDashboard
+                  key={assignment.id}
+                  assignment={assignment}
+                  classInfo={classInfo}
+                  classStudents={classStudents}
                   attendance={attendance}
                   suspended={suspended}
                   showToast={showToast}
                   isArchived={isArchived}
                 />
-              )}
+              );
+            })}
 
-              {activeTab === "scan" && !selectedClass && (
-                <div className="text-center py-20 text-slate-400">
-                  <p className="text-5xl mb-4">📚</p>
-                  <p className="font-semibold text-base">No class selected</p>
-                  <p className="text-sm mt-2">Select a section from the sidebar to begin scanning.</p>
-                </div>
-              )}
-
-              {activeTab === "sf2" && selectedClass && (
-                <SF2View
-                  classInfo={selectedClass}
-                  classStudents={selectedStudents}
-                  attendance={attendance}
-                  showToast={showToast}
-                  sy={sy}
-                  isArchived={isArchived}
-                />
-              )}
-
-              {activeTab === "students" && selectedClass && (
-                <StudentManagement
-                  classInfo={selectedClass}
-                  classStudents={selectedStudents}
-                  showToast={showToast}
-                  isArchived={isArchived}
-                />
-              )}
-
-              {activeTab === "qr" && <QRPrintPage allStudents={allStudents} />}
-
-              {activeTab === "staff" && user.role === "admin" && (
-                <StaffAccountManager allClasses={classes} showToast={showToast} />
-              )}
-
-              {activeTab === "settings" && user.role === "admin" && (
-                <SchoolSettings showToast={showToast} />
-              )}
-
-              {activeTab === "calendar" && (
-                <CalendarView user={user} sy={sy} showToast={showToast} />
-              )}
-
-              <Toaster
-                position="bottom-right"
-                toastOptions={{
-                  style: {
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    borderRadius: 14,
-                    padding: "12px 18px",
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-                  },
-                  success: {
-                    iconTheme: { primary: "#059669", secondary: "#fff" },
-                  },
-                  error: {
-                    iconTheme: { primary: "#7B1113", secondary: "#fff" },
-                    style: { background: "#5A0C0E", color: "white" },
-                  },
-                }}
+            {activeTab === "scan" && selectedClass && (
+              <ScannerView
+                classInfo={selectedClass}
+                classStudents={selectedStudents}
+                attendance={attendance}
+                suspended={suspended}
+                showToast={showToast}
+                isArchived={isArchived}
               />
+            )}
 
-            </div>
+            {activeTab === "scan" && !selectedClass && (
+              <div className="text-center py-20 text-slate-400">
+                <p className="text-5xl mb-4">📚</p>
+                <p className="font-semibold text-base">No class selected</p>
+                <p className="text-sm mt-2">Select a section from the sidebar to begin.</p>
+              </div>
+            )}
+
+            {activeTab === "sf2" && selectedClass && (
+              <SF2View classInfo={selectedClass} classStudents={selectedStudents} attendance={attendance} showToast={showToast} sy={sy} isArchived={isArchived} />
+            )}
+
+            {activeTab === "students" && selectedClass && (
+              <StudentManagement classInfo={selectedClass} classStudents={selectedStudents} showToast={showToast} isArchived={isArchived} />
+            )}
+
+            {activeTab === "qr" && <QRPrintPage allStudents={allStudents} />}
+
+            {activeTab === "staff" && user.role === "admin" && (
+              <StaffAccountManager allClasses={classes} showToast={showToast} />
+            )}
+
+            {activeTab === "settings" && user.role === "admin" && (
+              <SchoolSettings showToast={showToast} />
+            )}
+
+            {activeTab === "calendar" && (
+              <CalendarView user={user} sy={sy} showToast={showToast} />
+            )}
+
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                style: {
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  borderRadius: 14,
+                  padding: "12px 18px",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+                },
+                success: { iconTheme: { primary: "#059669", secondary: "#fff" } },
+                error: {
+                  iconTheme: { primary: "#7B1113", secondary: "#fff" },
+                  style: { background: "#5A0C0E", color: "white" },
+                },
+              }}
+            />
+
+          </div>
         </main>
-      </div>
-    </div>
-  );
+      </div>
+    </div>
+  );
 }
