@@ -222,7 +222,12 @@ const STRANDS = {
 };
 const GRADE_LEVELS = ["7", "8", "9", "10", "11", "12"];
 const TODAY = new Date();
-const fmt = (d) => d.toISOString().split("T")[0];
+const fmt = (d) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
 
 // ─── SECONDARY FIREBASE APP ───────────────────────────────────────────────────
 const secondaryApp = initializeApp(
@@ -1101,7 +1106,6 @@ function ScannerView({ classInfo, classStudents, attendance, suspended, showToas
   }, [presentCutoff, lateCutoff]);
 
   const handleScan = useCallback((rawData) => {
-    // 1. Safely extract the string, no matter what version of the library is running
     let scannedText = "";
     if (typeof rawData === "string") {
       scannedText = rawData;
@@ -1113,20 +1117,14 @@ function ScannerView({ classInfo, classStudents, attendance, suspended, showToas
 
     if (!scannedText) return;
 
-    // 2. Look for exactly 12 digits anywhere in the scanned text
     const match = scannedText.match(/\d{12}/);
-    
     if (!match) {
-      // If it scans something that isn't a 12-digit LRN, tell the user!
       showToast(`Invalid QR Code scanned: ${scannedText}`, "error");
       return;
     }
 
     const lrn = match[0];
-    
-    const student = classStudents.find(
-      s => String(s.lrn).trim() === lrn
-    );
+    const student = classStudents.find(s => String(s.lrn).trim() === lrn);
 
     if (!student) {
       showToast(`LRN "${lrn}" not found in this section.`, "error");
@@ -1141,14 +1139,24 @@ function ScannerView({ classInfo, classStudents, attendance, suspended, showToas
     }
 
     const status = getTimeStatus();
+    
+    // 1. Update the UI counter immediately
     setScanned(prev => ({
       ...prev,
       [lrn]: { student, status, time: new Date().toLocaleTimeString() },
     }));
+
+    // 2. SAVE TO FIREBASE IMMEDIATELY (Real-time sync)
+    setDoc(
+      doc(db, "attendance", classInfo.id, "records", todayStr),
+      { [lrn]: status },
+      { merge: true }
+    ).catch(err => console.error("Database save error:", err));
+
     showToast(`✅ ${student.name} — ${status}`);
     setInput("");
     inputRef.current?.focus();
-  }, [classStudents, scanned, getTimeStatus, showToast]);
+  }, [classStudents, scanned, getTimeStatus, showToast, classInfo.id, todayStr]);
 
   const endSession = async () => {
   const scannedLRNs = new Set(Object.keys(scanned));
@@ -1331,7 +1339,7 @@ function ScannerView({ classInfo, classStudents, attendance, suspended, showToas
                 }}
                 styles={{ container: { borderRadius: 12 } }}
               />
-              
+
               {/* Flip camera button */}
               <button
                 onClick={() => setFacingMode(f => f === "environment" ? "user" : "environment")}
@@ -2825,23 +2833,11 @@ function CalendarView({ user, sy, showToast }) {
 }
 
 function AdminMasterList({ allClasses, allStudents, showToast }) {
-  const [selectedGrade,   setSelectedGrade]   = useState("");
-  const [selectedSection, setSelectedSection] = useState("");
-  const [search, setSearch] = useState("");
-
-  const gradeOptions = useMemo(
-    () => [...new Set(allClasses.map(c => c.grade))].sort((a, b) => parseInt(a) - parseInt(b)),
-    [allClasses]
-  );
-
-  const sectionOptions = useMemo(
-    () => allClasses.filter(c => !selectedGrade || c.grade === selectedGrade),
-    [allClasses, selectedGrade]
-  );
-
   const studentList = useMemo(() => {
     const all = Object.values(allStudents).flat();
-    return all.filter(s => {
+    
+    // 1. Filter the students based on search and dropdowns
+    const filtered = all.filter(s => {
       const gradeMatch   = !selectedGrade   || String(s.grade).trim()   === String(selectedGrade).trim();
       const sectionMatch = !selectedSection || String(s.section).trim() === String(selectedSection).trim();
       const searchLower  = search.toLowerCase();
@@ -2850,6 +2846,11 @@ function AdminMasterList({ allClasses, allStudents, showToast }) {
         || String(s.lrn ?? "").includes(search);
       return gradeMatch && sectionMatch && textMatch;
     });
+
+    // 2. Sort the filtered list A-Z by name
+    return filtered.sort((a, b) => 
+      (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" })
+    );
   }, [allStudents, selectedGrade, selectedSection, search]);
 
   // Shared style for always-floated labels
