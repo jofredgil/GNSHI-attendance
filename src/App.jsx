@@ -2834,14 +2834,31 @@ function CalendarView({ user, sy, showToast }) {
 
 function AdminMasterList({ allClasses, allStudents, showToast }) {
   const studentList = useMemo(() => {
-    // 1. Get all students
+    // Ensure allStudents is available
+    if (!allStudents) return [];
+    
     const all = Object.values(allStudents).flat();
     
-    // 2. Sort the entire list A-Z by name
-    return all.sort((a, b) => 
+    // Default to empty strings if variables are undefined during first render
+    const curGrade = typeof selectedGrade !== 'undefined' ? selectedGrade : "";
+    const curSection = typeof selectedSection !== 'undefined' ? selectedSection : "";
+    const curSearch = typeof search !== 'undefined' ? search : "";
+    
+    const filtered = all.filter(s => {
+      const gradeMatch   = !curGrade   || String(s.grade).trim()   === String(curGrade).trim();
+      const sectionMatch = !curSection || String(s.section).trim() === String(curSection).trim();
+      const searchLower  = curSearch.toLowerCase();
+      const textMatch    = !curSearch
+        || s.name?.toLowerCase().includes(searchLower)
+        || String(s.lrn ?? "").includes(curSearch);
+      return gradeMatch && sectionMatch && textMatch;
+    });
+
+    // Sort A-Z by name
+    return filtered.sort((a, b) => 
       (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" })
     );
-  }, [allStudents]);
+  }, [allStudents, selectedGrade, selectedSection, search]);
 
   // Shared style for always-floated labels
   const floatedLabelStyle = {
