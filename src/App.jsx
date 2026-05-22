@@ -1471,14 +1471,17 @@ function ScannerView({ classInfo, classStudents, attendance, suspended, showToas
 // ─── STUDENT MANAGEMENT ───────────────────────────────────────────────────────
 function StudentManagement({ classInfo, classStudents, showToast, isArchived }) {
   const [search, setSearch] = useState("");
+  const [genderFilter, setGenderFilter] = useState("");
   const [addModal, setAddModal] = useState(false);
   const [form, setForm] = useState({ lrn: "", name: "", gender: "M" });
   const sf = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const importRef = useRef(null);
 
-  const filtered = (classStudents || []).filter(s =>
-    s.name?.toLowerCase().includes(search.toLowerCase()) || s.lrn?.includes(search)
-  );
+  const filtered = (classStudents || []).filter(s => {
+    const textMatch = s.name?.toLowerCase().includes(search.toLowerCase()) || s.lrn?.includes(search);
+    const genMatch = !genderFilter || s.gender === genderFilter;
+    return textMatch && genMatch;
+  });
 
   const handleAdd = async () => {
     if (!form.lrn.trim() || !form.name.trim()) {
@@ -1656,15 +1659,25 @@ function StudentManagement({ classInfo, classStudents, showToast, isArchived }) 
         </div>
       </div>
 
-      <div className="relative">
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full h-11 pl-10 pr-4 border border-slate-200 rounded-xl text-sm outline-none font-sans transition-all"
-          style={{ "--tw-ring-color": `${B.maroon}15` }}
-          placeholder="Search by name or LRN…"
-        />
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base">🔍</span>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full h-11 pl-10 pr-4 border border-slate-200 rounded-xl text-sm outline-none font-sans transition-all focus:border-maroon"
+            placeholder="Search by name or LRN…"
+          />
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base">🔍</span>
+        </div>
+        <select
+          value={genderFilter}
+          onChange={e => setGenderFilter(e.target.value)}
+          className="h-11 px-4 border border-slate-200 rounded-xl text-sm outline-none font-sans bg-white focus:border-maroon"
+        >
+          <option value="">All Genders</option>
+          <option value="M">Male</option>
+          <option value="F">Female</option>
+        </select>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-card">
@@ -1791,9 +1804,10 @@ function SF2View({ classInfo, classStudents, attendance, showToast, sy, isArchiv
 
   const exportCSV = () => {
   // Sort students alphabetically — same order as the rendered table
-  const sorted = [...classStudents].sort((a, b) =>
-    (a.name || "").localeCompare(b.name || "")
-  );
+  const sorted = [...classStudents].sort((a, b) => {
+    if (a.gender !== b.gender) return (b.gender || "M").localeCompare(a.gender || "M"); 
+    return (a.name || "").localeCompare(b.name || "");
+  });
 
   const header = [
     "LRN",
@@ -1894,24 +1908,59 @@ function SF2View({ classInfo, classStudents, attendance, showToast, sy, isArchiv
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {(classStudents || []).map((s, i) => {
-                const tots = getTotals(s.lrn);
-                return (
-                  <tr key={s.id} className={i % 2 ? "bg-slate-50/40" : "bg-white"}>
-                    <td className="border border-slate-100 py-2 px-4 font-semibold sticky left-0 z-10" style={{ color: B.maroonDark, background: i % 2 ? "#F8F9FA" : "white" }}>{s.name}</td>
-                    {schoolDays.map(d => {
-                      const r = getRec(s.lrn, d);
-                      return <td key={d} className="border border-slate-100 text-center py-1.5 px-0.5 font-bold" style={{ color: cellColor(r) }}>{cellCode(r)}</td>;
-                    })}
-                    <td className="border border-slate-100 text-center py-1.5 px-2 font-bold text-emerald-700">{tots.present}</td>
-                    <td className="border border-slate-100 text-center py-1.5 px-2 font-bold" style={{ color: B.maroon }}>{tots.absent}</td>
-                    <td className="border border-slate-100 text-center py-1.5 px-2 font-bold text-amber-600">{tots.tardy}</td>
-                    <td className="border border-slate-100 text-center py-1.5 px-2 font-bold" style={{ color: B.blue }}>{tots.rate}%</td>
-                  </tr>
-                );
-              })}
-            </tbody>
+         
+            {(() => {
+              // Sort and separate students
+              const sortedClassList = [...classStudents].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+              const males = sortedClassList.filter(s => s.gender === "M");
+              const females = sortedClassList.filter(s => s.gender === "F");
+              
+              const groups = [
+                { title: "MALE", data: males },
+                { title: "FEMALE", data: females }
+              ];
+
+              return groups.map((group, groupIdx) => (
+                <tbody key={group.title}>
+                  {/* Sub-header row for MALE / FEMALE */}
+                  <tr>
+                    <td 
+                      colSpan={1 + schoolDays.length + 4} 
+                      className="border border-slate-200 py-1.5 px-4 font-bold text-xs tracking-widest" 
+                      style={{ background: "#F1F5F9", color: B.slate }}
+                    >
+                      === {group.title} ===
+                    </td>
+                  </tr>
+                  
+                  {/* Students in this group */}
+                  {group.data.length === 0 ? (
+                    <tr>
+                      <td colSpan={1 + schoolDays.length + 4} className="py-8 text-center text-slate-400 italic">
+                        No {group.title.toLowerCase()} learners in this section.
+                      </td>
+                    </tr>
+                  ) : group.data.map((s, i) => {
+                    const tots = getTotals(s.lrn);
+                    return (
+                      <tr key={s.id} className={i % 2 ? "bg-slate-50/40" : "bg-white"}>
+                        <td className="border border-slate-100 py-2 px-4 font-semibold sticky left-0 z-10 whitespace-nowrap" style={{ color: B.maroonDark, background: i % 2 ? "#F8F9FA" : "white" }}>
+                          {i + 1}. {s.name}
+                        </td>
+                        {schoolDays.map(d => {
+                          const r = getRec(s.lrn, d);
+                          return <td key={d} className="border border-slate-100 text-center py-1.5 px-0.5 font-bold" style={{ color: cellColor(r) }}>{cellCode(r)}</td>;
+                        })}
+                        <td className="border border-slate-100 text-center py-1.5 px-2 font-bold text-emerald-700">{tots.present}</td>
+                        <td className="border border-slate-100 text-center py-1.5 px-2 font-bold" style={{ color: B.maroon }}>{tots.absent}</td>
+                        <td className="border border-slate-100 text-center py-1.5 px-2 font-bold text-amber-600">{tots.tardy}</td>
+                        <td className="border border-slate-100 text-center py-1.5 px-2 font-bold" style={{ color: B.blue }}>{tots.rate}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              ));
+            })()}
           </table>
         </div>
 
@@ -2836,6 +2885,7 @@ function AdminMasterList({ allClasses, allStudents, showToast }) {
   const [selectedGrade, setSelectedGrade] = useState("");
   const [selectedSection, setSelectedSection] = useState("");
   const [search, setSearch] = useState("");
+  const [selectedGender, setSelectedGender] = useState("");
 
   const gradeOptions = ["7", "8", "9", "10", "11", "12"];
   const sectionOptions = useMemo(() => {
@@ -2859,15 +2909,18 @@ function AdminMasterList({ allClasses, allStudents, showToast }) {
       const textMatch = !search || 
                         s.name?.toLowerCase().includes(searchLower) || 
                         String(s.lrn ?? "").includes(search);
+      const studentGender = String(s.gender || "M").toUpperCase();
+      const filterGender = String(selectedGender || "").toUpperCase();
+      const genderMatch = !selectedGender || studentGender === filterGender;
       
-      return gradeMatch && sectionMatch && textMatch;
+      return gradeMatch && sectionMatch && textMatch && genderMatch;
     });
 
     // Sort alphabetically by name
     return filtered.sort((a, b) => 
       (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" })
     );
-  }, [allStudents, selectedGrade, selectedSection, search]);
+  }, [allStudents, selectedGrade, selectedSection, search, selectedGender]);
 
   // Shared style for always-floated labels
   const floatedLabelStyle = {
@@ -2888,7 +2941,7 @@ function AdminMasterList({ allClasses, allStudents, showToast }) {
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Grade */}
         <div className="float-wrap relative">
           <select
@@ -2921,6 +2974,16 @@ function AdminMasterList({ allClasses, allStudents, showToast }) {
           </select>
           {/* Always floated — no conditional positioning */}
           <label style={floatedLabelStyle}>Section</label>
+          <Ic.chevDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+        </div>
+
+        <div className="float-wrap relative">
+          <select value={selectedGender} onChange={e => setSelectedGender(e.target.value)}>
+            <option value="">All Genders</option>
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+          </select>
+          <label style={floatedLabelStyle}>Gender</label>
           <Ic.chevDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
         </div>
 
