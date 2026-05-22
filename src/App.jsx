@@ -91,7 +91,12 @@ twScript.onload = () => {
 
 // ─── GLOBAL INJECTED STYLES ───────────────────────────────────────────────────
 const injectStyles = () => {
+  // Remove existing styles to prevent duplication during hot reloads
+  const existing = document.getElementById('gnshi-styles');
+  if (existing) existing.remove();
+
   const style = document.createElement("style");
+  style.id = "gnshi-styles";
   style.textContent = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { font-family: 'DM Sans', system-ui, sans-serif; background: #F8F7F5; }
@@ -148,55 +153,64 @@ const injectStyles = () => {
       }
       .float-wrap select { appearance: none; cursor: pointer; }
 
-   @media print {
-  body * { visibility: hidden; }
-  #qr-print-area,
-  #qr-print-area * { visibility: visible; }
-  #qr-print-header,
-  #qr-print-header * { visibility: visible; }
-
-  @page {
-    size: A4 portrait;
-    margin: 10mm;
-  }
-
-  /*
-   * Outer centering shell — positions the whole block in the
-   * horizontal centre of the A4 page.
-   */
-  #qr-print-shell {
-    position: fixed !important;
-    top:    0 !important;
-    left:   0 !important;
-    width:  210mm !important;
-    margin: 0 auto !important;
-    padding: 8mm !important;
-    box-sizing: border-box !important;
-  }
-
-  /* School header shown only in print */
-  #qr-print-header {
-    display: block !important;
-    text-align: center !important;
-    margin-bottom: 6mm !important;
-  }
-
-  /* 4-column QR grid */
-  #qr-print-area {
-    display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 4mm !important;
-    justify-items: center !important;
-    width: 100% !important;
-  }
-}
-
     @keyframes spin { to { transform: rotate(360deg); } }
     .spin { animation: spin 0.8s linear infinite; }
     .fade-up { animation: fadeUp 0.3s ease forwards; }
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── GUARANTEED PRINT FIX ─── */
+    @media print {
+      /* 1. NUKE THE UI ELEMENTS */
+      #app-sidebar,
+      #app-header,
+      #qr-screen-toolbar {
+        display: none !important;
+      }
+
+      /* 2. RESET WRAPPERS SO THEY BEHAVE LIKE NORMAL PAPER */
+      html, body, #root, #app-wrapper, #app-content, #app-main {
+        display: block !important;
+        height: auto !important;
+        min-height: auto !important;
+        width: 100% !important;
+        position: static !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
+      }
+
+      @page {
+        size: A4 portrait;
+        margin: 10mm;
+      }
+
+      /* 3. SHOW THE PRINT TITLE */
+      #qr-print-header {
+        display: block !important;
+        text-align: center !important;
+        margin-bottom: 8mm !important;
+      }
+
+      /* 4. PERFECT 4-COLUMN GRID FOR QR CODES */
+      #qr-print-area {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 8mm 4mm !important;
+        width: 100% !important;
+        justify-items: center !important;
+      }
+
+      /* Ensure cards stay a normal size and don't split across pages */
+      #qr-print-area > div {
+        width: 100% !important;
+        max-width: 45mm !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
     }
   `;
   document.head.appendChild(style);
@@ -604,6 +618,7 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
 
   return (
     <aside
+      id="app-sidebar"
       className="flex-shrink-0 h-screen flex flex-col overflow-hidden relative z-50 transition-all duration-300"
       style={{
         width: sideOpen ? 252 : 64,
@@ -834,7 +849,7 @@ function TopHeader({ user, activeTab, selectedClass, suspended, sy, setSy, quart
   };
 
   return (
-    <header className="bg-white border-b border-slate-100 px-6 h-16 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm relative z-10">
+    <header id="app-header" className="bg-white border-b border-slate-100 px-6 h-16 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm relative z-10">
       <div>
         <h1 className="font-display text-lg font-bold tracking-tight" style={{ color: B.maroonDark }}>
           {tabTitles[activeTab] || "GNSHI SAMS"}
@@ -2005,7 +2020,7 @@ function QRPrintPage({ allStudents }) {
   return (
     <div className="fade-up">
       {/* ── Screen toolbar (hidden during print) ── */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3 print:hidden">
+      <div id="qr-screen-toolbar" className="flex items-center justify-between mb-6 flex-wrap gap-3 print:hidden">
         <div>
           <h2 className="font-display text-xl font-bold" style={{ color: B.maroon }}>
             QR Code Generator
@@ -3701,7 +3716,7 @@ const list = students[selectedClassId] || [];
 );
 
   return (
-    <div className="flex h-screen overflow-hidden font-sans" style={{ background: B.offWhite }}>
+    <div id="app-wrapper" className="flex h-screen overflow-hidden font-sans" style={{ background: B.offWhite }}>
       <Sidebar
         user={user}
         classes={classes}
@@ -3716,15 +3731,15 @@ const list = students[selectedClassId] || [];
         myAssignments={myAssignments}
       />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div id="app-content" className="flex-1 flex flex-col overflow-hidden">
         <TopHeader
           user={user} activeTab={activeTab} selectedClass={selectedClass}
           suspended={suspended} sy={sy} setSy={setSy} quarter={quarter} setQuarter={setQuarter}
           onUpdateSyQuarter={updateSyQuarter}
         />
 
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-            <div className="max-w-screen-2xl mx-auto">
+        <main id="app-main" className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <div className="max-w-screen-2xl mx-auto">
 
               {activeTab === "dashboard" && user.role === "admin" && (
                 <AdminDashboard allClasses={classes} allStudents={allStudents} attendance={attendance} suspended={suspended} setSuspended={setSuspended} showToast={showToast} sy={sy} quarter={quarter} />
