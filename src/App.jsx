@@ -99,7 +99,7 @@ const injectStyles = () => {
   style.id = "gnshi-styles";
   style.textContent = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { font-family: 'DM Sans', system-ui, sans-serif; background: #F8F7F5; }
+    html, body { font-family: 'DM Sans', system-ui, sans-serif; background: #FFFFFF; }
 
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -164,23 +164,31 @@ const injectStyles = () => {
     /* ─── GUARANTEED PRINT FIX ─── */
     @media print {
       /* 1. NUKE THE UI ELEMENTS */
-      #app-sidebar,
-      #app-header,
-      #qr-screen-toolbar {
+      #app-sidebar, #app-header, #qr-screen-toolbar {
         display: none !important;
       }
 
       /* 2. RESET WRAPPERS SO THEY BEHAVE LIKE NORMAL PAPER */
-      html, body, #root, #app-wrapper, #app-content, #app-main {
+      html, body, #root, #app-wrapper, #app-content, #app-main, main, .max-w-screen-2xl, #qr-print-shell {
         display: block !important;
-        height: auto !important;
-        min-height: auto !important;
         width: 100% !important;
-        position: static !important;
-        overflow: visible !important;
+        height: auto !important;
         margin: 0 !important;
         padding: 0 !important;
+        overflow: visible !important;
+        position: static !important;
+        background: #FFFFFF !important;
+        background-color: #FFFFFF !important;
+      }
+
+      #qr-print-shell * {
         background: transparent !important;
+        background-color: transparent !important;
+      }
+
+      #qr-print-area > div {
+        background: #FFFFFF !important;
+        background-color: #FFFFFF !important;
       }
 
       @page {
@@ -2407,6 +2415,83 @@ function QRPrintPage({ allClasses, allStudents }) {
     });
     return out.join(" · ") || "All Students";
   }, [selectedGrade, selectedSection, filteredStudents]);
+  
+  // ── THE ULTIMATE PRINT BYPASS ──
+  const handleSecurePrint = () => {
+    // 1. Grab exactly what we want to print (ignoring the gray app background)
+    const qrContent = document.getElementById('qr-print-shell').innerHTML;
+
+    // 2. Open a temporary, invisible print window
+    const printWindow = window.open('', '', 'width=900,height=900');
+
+    // 3. Write a brand-new, completely white HTML document
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print QR Codes</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            /* GUARANTEED PURE WHITE */
+            html, body { background: #FFFFFF !important; background-color: #FFFFFF !important; margin: 0; }
+            @page { size: A4 portrait; margin: 10mm; }
+            
+            /* Hide the toolbar buttons in the printout */
+            #qr-screen-toolbar { display: none !important; }
+
+            #qr-print-header { 
+              display: block !important; 
+              text-align: center !important; 
+              margin-bottom: 5mm !important; /* Reduced to leave room for the 4th row */
+            }
+            
+            /* 👇 THE ADJUSTED 3x4 GRID 👇 */
+            #qr-print-area { 
+              display: grid !important; 
+              grid-template-columns: repeat(3, 1fr) !important; 
+              gap: 12mm 5mm !important; /* Reduced vertical gap so Page 1 doesn't overflow */
+            }
+            
+            #qr-print-area > div { 
+              width: 100% !important;
+              max-width: 60mm !important; 
+              break-inside: avoid !important; 
+              page-break-inside: avoid !important; 
+              background: #FFFFFF !important; 
+              padding: 5mm !important; /* Slightly tighter padding */
+            }
+
+            /* Safely size the QR code */
+            #qr-print-area > div svg, 
+            #qr-print-area > div img,
+            #qr-print-area > div canvas {
+              width: 100% !important;
+              height: auto !important;
+              max-width: 130px !important; /* Scaled down just a hair to guarantee it fits */
+              margin: 0 auto 8px auto !important; 
+            }
+
+            /* Force a page break after every 12th card */
+            #qr-print-area > div:nth-child(12n) {
+              break-after: page !important;
+              page-break-after: always !important;
+
+            </style>
+        </head>
+        <body>
+          ${qrContent}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+
+    // 4. Wait half a second for Tailwind to load the fonts, print it, then close the popup
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
+  };
 
   return (
     <div className="fade-up">
@@ -2425,7 +2510,7 @@ function QRPrintPage({ allClasses, allStudents }) {
               {sectionLabels ? ` · ${sectionLabels}` : ""} · LRN-based QR codes
             </p>
           </div>
-          <Btn variant="primary" onClick={() => window.print()}>
+          <Btn variant="primary" onClick={handleSecurePrint}>
             <Ic.print className="w-5 h-5" /> Print A4 Sheet
           </Btn>
         </div>
@@ -2511,7 +2596,7 @@ function QRPrintPage({ allClasses, allStudents }) {
 
       {/* ── Print shell ───────────────────────────────────────────────────── */}
       {/* NOTE: Do NOT alter anything inside this div — print CSS targets these IDs */}
-      <div id="qr-print-shell" className="mx-auto" style={{ maxWidth: "210mm" }}>
+      <div id="qr-print-shell" className="mx-auto print:!bg-white print:!bg-transparent" style={{ maxWidth: "210mm" }}>
 
         {/* Print-only header */}
         <div id="qr-print-header" className="hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -4193,11 +4278,7 @@ const list = students[selectedClassId] || [];
 );
 
   return (
-    <div
-      id="app-wrapper"
-      className="flex h-screen overflow-hidden font-sans"
-      style={{ background: B.offWhite }}
-    >
+    <div id="app-wrapper" className="flex h-screen overflow-hidden font-sans" style={{ background: activeTab === "qr" ? "#FFFFFF" : B.offWhite }}>
       <Sidebar
         user={user}
         classes={classes}
