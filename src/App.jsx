@@ -2032,146 +2032,200 @@ function SF2View({ classInfo, classStudents, attendance, showToast, sy, isArchiv
 }
 
 // ─── QR PRINT PAGE ────────────────────────────────────────────────────────────
-function QRPrintPage({ allStudents }) {
-  // Derive a display label from the first student that has grade/section data.
-  // Falls back gracefully when the list is empty.
-  const firstWithMeta = allStudents.find(s => s.grade && s.section);
-  const classLabel    = firstWithMeta
-    ? `Grade ${firstWithMeta.grade} — ${firstWithMeta.section}`
-    : null;
+function QRPrintPage({ allClasses, allStudents }) {
+  const [selectedGrade,   setSelectedGrade]   = useState("");
+  const [selectedSection, setSelectedSection] = useState("");
 
-  // Build a sorted, de-duplicated set of section labels for the subtitle
-  // (handles edge-case where multiple sections share the same QR sheet)
+  // Sorted unique grade list derived from allClasses
+  const gradeOptions = useMemo(
+    () => [...new Set(allClasses.map(c => c.grade))]
+            .sort((a, b) => parseInt(a) - parseInt(b)),
+    [allClasses]
+  );
+
+  // Sections filtered by selected grade
+  const sectionOptions = useMemo(
+    () => allClasses.filter(c => !selectedGrade || c.grade === selectedGrade),
+    [allClasses, selectedGrade]
+  );
+
+  // Filtered + alphabetically sorted student list
+  const filteredStudents = useMemo(() => {
+    return allStudents
+      .filter(s => {
+        const gradeMatch   = !selectedGrade   || String(s.grade).trim()   === String(selectedGrade).trim();
+        const sectionMatch = !selectedSection || String(s.section).trim() === String(selectedSection).trim();
+        return gradeMatch && sectionMatch;
+      })
+      .sort((a, b) => (a.name || "").localeCompare(b.name || "", "en", { sensitivity: "base" }));
+  }, [allStudents, selectedGrade, selectedSection]);
+
+  // Dynamic header label — reflects the active filter
   const sectionLabels = useMemo(() => {
+    if (selectedSection && selectedGrade) return `Grade ${selectedGrade} — ${selectedSection}`;
+    if (selectedGrade)                    return `Grade ${selectedGrade} (All Sections)`;
+
+    // Fall back to listing every unique section present in the filtered set
     const seen = new Set();
     const out  = [];
-    allStudents.forEach(s => {
+    filteredStudents.forEach(s => {
       const key = `Grade ${s.grade} — ${s.section}`;
-      if (s.grade && s.section && !seen.has(key)) {
-        seen.add(key);
-        out.push(key);
-      }
+      if (s.grade && s.section && !seen.has(key)) { seen.add(key); out.push(key); }
     });
-    return out.join(" · ");
-  }, [allStudents]);
+    return out.join(" · ") || "All Students";
+  }, [selectedGrade, selectedSection, filteredStudents]);
 
   return (
     <div className="fade-up">
-      {/* ── Screen toolbar (hidden during print) ── */}
-      <div id="qr-screen-toolbar" className="flex items-center justify-between mb-6 flex-wrap gap-3 print:hidden">
-        <div>
-          <h2 className="font-display text-xl font-bold" style={{ color: B.maroon }}>
-            QR Code Generator
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            {allStudents.length} student{allStudents.length !== 1 ? "s" : ""}
-            {sectionLabels ? ` · ${sectionLabels}` : ""} · Real scannable QR codes (LRN-based)
-          </p>
+
+      {/* ── Screen toolbar (hidden during print) ─────────────────────────── */}
+      <div id="qr-screen-toolbar" className="mb-6 space-y-4 print:hidden">
+
+        {/* Title + print button row */}
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="font-display text-xl font-bold" style={{ color: B.maroon }}>
+              QR Code Generator
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">
+              {filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""}
+              {sectionLabels ? ` · ${sectionLabels}` : ""} · LRN-based QR codes
+            </p>
+          </div>
+          <Btn variant="primary" onClick={() => window.print()}>
+            <Ic.print className="w-5 h-5" /> Print A4 Sheet
+          </Btn>
         </div>
-        <Btn variant="primary" onClick={() => window.print()}>
-          <Ic.print className="w-5 h-5" /> Print A4 Sheet
-        </Btn>
+
+        {/* Filter row */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">
+            Filter by Grade &amp; Section
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+            {/* Grade dropdown */}
+            <div className="float-wrap relative">
+              <select
+                value={selectedGrade}
+                onChange={e => { setSelectedGrade(e.target.value); setSelectedSection(""); }}
+              >
+                <option value="">All Grades</option>
+                {gradeOptions.map(g => (
+                  <option key={g} value={g}>Grade {g}</option>
+                ))}
+              </select>
+              <label style={{
+                top: 8, transform: "none", fontSize: 10, fontWeight: 700,
+                letterSpacing: "0.07em", textTransform: "uppercase", color: B.maroon,
+              }}>
+                Grade Level
+              </label>
+              <Ic.chevDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+            </div>
+
+            {/* Section dropdown */}
+            <div className="float-wrap relative">
+              <select
+                value={selectedSection}
+                onChange={e => setSelectedSection(e.target.value)}
+                disabled={sectionOptions.length === 0}
+              >
+                <option value="">All Sections</option>
+                {sectionOptions.map(c => (
+                  <option key={c.id} value={c.section}>{c.section}</option>
+                ))}
+              </select>
+              <label style={{
+                top: 8, transform: "none", fontSize: 10, fontWeight: 700,
+                letterSpacing: "0.07em", textTransform: "uppercase", color: B.maroon,
+              }}>
+                Section
+              </label>
+              <Ic.chevDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+            </div>
+
+            {/* Clear filters button */}
+            {(selectedGrade || selectedSection) && (
+              <div className="flex items-center">
+                <button
+                  onClick={() => { setSelectedGrade(""); setSelectedSection(""); }}
+                  className="h-9 px-4 rounded-xl border border-slate-200 text-xs font-semibold text-slate-500 hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-all"
+                >
+                  Clear filters ✕
+                </button>
+              </div>
+            )}
+
+          </div>
+
+          {/* Result summary chip */}
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <span
+              className="text-xs font-bold px-3 py-1 rounded-full"
+              style={{ background: B.maroonFade, color: B.maroon, border: `1px solid ${B.maroon}20` }}
+            >
+              {filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""} will be printed
+            </span>
+            {filteredStudents.length === 0 && (
+              <span className="text-xs text-slate-400 italic">
+                No students match the selected filters.
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/*
-       * ── Print shell ──────────────────────────────────────────────────────
-       * id="qr-print-shell" is targeted by @media print to lock the whole
-       * block to a 210mm-wide centred column on the A4 page.
-       * The Tailwind classes (mx-auto, max-w) do the same job on-screen.
-       */}
-      <div
-        id="qr-print-shell"
-        className="mx-auto"
-        style={{ maxWidth: "210mm" }}
-      >
-        {/*
-         * ── Print-only header ────────────────────────────────────────────
-         * Hidden on screen via `hidden`; the @media print rule sets
-         * `display: block` on #qr-print-header so it appears only on paper.
-         */}
-        <div
-          id="qr-print-header"
-          className="hidden"
-          style={{ fontFamily: "'DM Sans', sans-serif" }}
-        >
-          <p
-            style={{
-              fontSize: 14,
-              fontWeight: 800,
-              color: B.maroonDark,
-              margin: 0,
-              letterSpacing: "0.02em",
-            }}
-          >
+      {/* ── Print shell ───────────────────────────────────────────────────── */}
+      {/* NOTE: Do NOT alter anything inside this div — print CSS targets these IDs */}
+      <div id="qr-print-shell" className="mx-auto" style={{ maxWidth: "210mm" }}>
+
+        {/* Print-only header */}
+        <div id="qr-print-header" className="hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: B.maroonDark, margin: 0, letterSpacing: "0.02em" }}>
             GNSHI Smart Attendance System
           </p>
-          <p
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: B.slate,
-              margin: "2px 0 0",
-            }}
-          >
+          <p style={{ fontSize: 11, fontWeight: 600, color: B.slate, margin: "2px 0 0" }}>
             {sectionLabels || "Student QR Code Sheet"}
           </p>
-          <p
-            style={{
-              fontSize: 9,
-              color: "#94A3B8",
-              margin: "1px 0 0",
-            }}
-          >
+          <p style={{ fontSize: 9, color: "#94A3B8", margin: "1px 0 0" }}>
             Gigaquit National School of Home Industries · Printed{" "}
-            {TODAY.toLocaleDateString("en-PH", {
-              year:  "numeric",
-              month: "long",
-              day:   "numeric",
-            })}
+            {TODAY.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}
           </p>
-          {/* Thin rule separating header from cards */}
-          <div
-            style={{
-              height: 1,
-              background: `linear-gradient(90deg, ${B.maroon}, transparent)`,
-              marginTop: 5,
-              marginBottom: 0,
-            }}
-          />
+          <div style={{
+            height: 1,
+            background: `linear-gradient(90deg, ${B.maroon}, transparent)`,
+            marginTop: 5,
+            marginBottom: 0,
+          }} />
         </div>
 
-        {/*
-         * ── QR card grid ─────────────────────────────────────────────────
-         * On-screen: auto-fill responsive grid.
-         * In print:  @media print overrides to a strict 4-column grid.
-         */}
+        {/* QR card grid */}
         <div
           id="qr-print-area"
           className="grid w-full"
-          style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
-            gap: 10,
-          }}
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 }}
         >
-          {allStudents.map(s => (
+          {filteredStudents.length === 0 ? (
+            // Empty state — only visible on screen, not in print
+            <div
+              className="col-span-full py-16 text-center text-slate-400 print:hidden"
+              style={{ gridColumn: "1 / -1" }}
+            >
+              <p className="text-4xl mb-3">🔍</p>
+              <p className="font-semibold text-sm">No students found</p>
+              <p className="text-xs mt-1">Adjust the grade or section filter above.</p>
+            </div>
+          ) : filteredStudents.map(s => (
             <div
               key={s.id}
               className="bg-white border border-slate-200 rounded-xl flex flex-col items-center gap-1.5"
-              style={{
-                padding: "10px 8px 8px",
-                breakInside: "avoid",
-                pageBreakInside: "avoid",
-              }}
+              style={{ padding: "10px 8px 8px", breakInside: "avoid", pageBreakInside: "avoid" }}
             >
               {/* QR code */}
               <div
                 className="rounded-lg"
-                style={{
-                  padding: 4,
-                  background: "white",
-                  border: "1px solid #E2E8F0",
-                  lineHeight: 0,
-                }}
+                style={{ padding: 4, background: "white", border: "1px solid #E2E8F0", lineHeight: 0 }}
               >
                 <QRCodeSVG
                   value={s.lrn || "000000000000"}
@@ -2185,18 +2239,11 @@ function QRPrintPage({ allStudents }) {
               <div className="text-center w-full px-1">
                 <p
                   className="font-bold leading-tight"
-                  style={{
-                    fontSize: 9,
-                    color: B.maroonDark,
-                    wordBreak: "break-word",
-                  }}
+                  style={{ fontSize: 9, color: B.maroonDark, wordBreak: "break-word" }}
                 >
                   {s.name}
                 </p>
-                <p
-                  className="font-mono"
-                  style={{ fontSize: 8, color: "#94A3B8", marginTop: 2 }}
-                >
+                <p className="font-mono" style={{ fontSize: 8, color: "#94A3B8", marginTop: 2 }}>
                   {s.lrn}
                 </p>
                 {s.grade && s.section && (
@@ -3852,7 +3899,7 @@ const list = students[selectedClassId] || [];
               <StudentManagement classInfo={selectedClass} classStudents={selectedStudents} showToast={showToast} isArchived={isArchived} />
             )}
 
-            {activeTab === "qr" && <QRPrintPage allStudents={allStudents} />}
+            {activeTab === "qr" && <QRPrintPage allClasses={classes} allStudents={allStudents} />}
 
             {activeTab === "staff" && user.role === "admin" && (
               <StaffAccountManager allClasses={classes} showToast={showToast} />
