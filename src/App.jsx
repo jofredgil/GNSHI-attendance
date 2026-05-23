@@ -220,6 +220,64 @@ const injectStyles = () => {
         page-break-inside: avoid !important;
       }
     }
+
+    /* ── PREMIUM HOVER EFFECTS ── */
+
+    /* 1. Sidebar Nav - Expanding Gold Lines */
+    .nav-hover-lines {
+      position: relative;
+      overflow: visible; /* Let the lines bleed to the edge */
+    }
+    .nav-hover-lines::before,
+    .nav-hover-lines::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0%;
+      height: 2px;
+      /* Gold gradient fading at the edges */
+      background: linear-gradient(90deg, transparent, #E5C158, transparent); 
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+    .nav-hover-lines::before { top: 0; }
+    .nav-hover-lines::after { bottom: 0; }
+    
+    /* Expand the lines on hover, but only if it's NOT the active tab */
+    .nav-hover-lines:not(.nav-active):hover::before,
+    .nav-hover-lines:not(.nav-active):hover::after {
+      width: 100%;
+    }
+
+    /* 2. Maroon Buttons - Rising Gold Fluid */
+    .btn-fluid-gold {
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+      transition: color 0.4s ease;
+    }
+    .btn-fluid-gold::before {
+      content: '';
+      position: absolute;
+      bottom: -10%;
+      left: -10%;
+      width: 120%;
+      height: 0%;
+      background: linear-gradient(135deg, #E5C158, #C99B2D); /* Gold fluid */
+      z-index: -1;
+      /* The rounded top gives it the "fluid/liquid" illusion */
+      border-radius: 50% 50% 0 0; 
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn-fluid-gold:hover::before {
+      height: 150%; /* Fill past the top of the button */
+      border-radius: 0; /* Flatten out the wave as it fills */
+    }
+    .btn-fluid-gold:hover {
+      /* Force text/icons to turn dark maroon when filled with gold */
+      color: #4A0B0D !important; 
+    }
   `;
   document.head.appendChild(style);
 };
@@ -517,11 +575,8 @@ function LoginScreen() {
 
         {/* Brand mark */}
         <div className="relative z-10">
-          <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mb-6"
-            style={{ background: `linear-gradient(135deg, ${B.gold}, ${B.goldDark})`, boxShadow: `0 8px 28px ${B.gold}55` }}
-          >🏫</div>
-          <h1 className="font-display text-4xl font-bold text-white tracking-tight leading-none">GNSHI</h1>
+          <img src="/gnshi-logo.png" alt="GNSHI Logo" className="w-30 h-30 object-contain drop-shadow-xl mb-6" />
+          <h1 className="font-display text-5xl font-bold text-white tracking-tight leading-none">GNSHI</h1>
           <p className="text-xs font-bold tracking-[0.22em] uppercase mt-2" style={{ color: B.gold }}>
             Smart Attendance &amp; Monitoring
           </p>
@@ -572,12 +627,14 @@ function LoginScreen() {
                 value={password} onChange={e => setPassword(e.target.value)} required
               />
               <Btn
-                type="submit" disabled={loading} size="lg"
-                className="w-full mt-1"
+                type="submit"
+                disabled={loading}
+                size="lg"
+                className="btn-fluid-gold w-full mt-1"
                 style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})`, color: "white" }}
               >
                 {loading ? "Signing in…" : "Sign In →"}
-              </Btn>
+            </Btn>
             </form>
 
             <p className="text-center text-xs text-slate-400 mt-6">
@@ -591,10 +648,11 @@ function LoginScreen() {
 }
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab, setActiveTab, sideOpen, setSideOpen, onLogout, calendarEvents = [], myAssignments = [] }) {
+// ─── SIDEBAR ──────────────────────────────────────────────────────────────────
+function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab, setActiveTab, sideOpen, setSideOpen, onLogout, calendarEvents = [], myAssignments = [], isDesktopCollapsed, setIsDesktopCollapsed }) {
   const [expandedGrades, setExpandedGrades] = useState({});
-  const todayStr  = fmt(TODAY);
-  const todayEvts = calendarEvents.filter(e => e.date === todayStr);
+  const todayStr   = fmt(TODAY);
+  const todayEvts  = calendarEvents.filter(e => e.date === todayStr);
   const todayEvent = todayEvts.find(e => e.type === "event");
 
   const gradeMap = useMemo(() => {
@@ -609,25 +667,23 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
   const toggleGrade = (g) => setExpandedGrades(prev => ({ ...prev, [g]: !prev[g] }));
 
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: Ic.home },
+    { id: "dashboard", label: "Dashboard",         icon: Ic.home     },
     ...(user.role === "admin" ? [
-      { id: "masterlist",  label: "Master List",       icon: Ic.users    },
-      { id: "staff",       label: "Staff Accounts",    icon: Ic.users    },
-      { id: "qr",          label: "QR Codes",          icon: Ic.scan     },
-      { id: "subjects",    label: "Subject Assignment", icon: Ic.book    },
-      { id: "settings",    label: "School Settings",   icon: Ic.settings },
+      { id: "masterlist", label: "Master List",        icon: Ic.users    },
+      { id: "staff",      label: "Staff Accounts",     icon: Ic.users    },
+      { id: "qr",         label: "QR Codes",           icon: Ic.scan     },
+      { id: "subjects",   label: "Subject Assignment", icon: Ic.book     },
+      { id: "settings",   label: "School Settings",    icon: Ic.settings },
     ] : [
-      { id: "scan",        label: "Scan Attendance",   icon: Ic.scan     },
+      { id: "scan",       label: "Scan Attendance",    icon: Ic.scan     },
     ]),
-    { id: "students",  label: "Student Records", icon: Ic.book     },
-    { id: "sf2",       label: "SF2 Report",      icon: Ic.file     },
-    { id: "calendar",  label: "Calendar",        icon: Ic.calendar },
+    { id: "students",  label: "Student Records",   icon: Ic.book     },
+    { id: "sf2",       label: "SF2 Report",        icon: Ic.file     },
+    { id: "calendar",  label: "Calendar",          icon: Ic.calendar },
   ];
 
-  // Close sidebar when a nav item is tapped on mobile
   const handleNavClick = (id) => {
     setActiveTab(id);
-    // Close on mobile (viewport < 768px)
     if (window.innerWidth < 768) setSideOpen(false);
   };
 
@@ -639,7 +695,6 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
 
   return (
     <>
-      {/* ── Mobile backdrop ──────────────────────────────────────────────── */}
       {sideOpen && (
         <div
           className="fixed inset-0 bg-black/55 backdrop-blur-sm z-40 md:hidden"
@@ -647,35 +702,45 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
         />
       )}
 
-      {/* ── Sidebar panel ────────────────────────────────────────────────── */}
       <aside
         id="app-sidebar"
         className={`
           fixed inset-y-0 left-0 z-50 flex flex-col
-          transition-transform duration-300 ease-in-out
+          transition-[transform,width] duration-300 ease-in-out
           md:relative md:translate-x-0 md:flex-shrink-0
           ${sideOpen ? "translate-x-0" : "-translate-x-full"}
         `}
         style={{
-          width: 260,
+          width: isDesktopCollapsed ? 80 : 260,
           background: `linear-gradient(180deg, ${B.maroonDark} 0%, ${B.maroon} 55%, #4A0B0D 100%)`,
           boxShadow: "4px 0 24px rgba(0,0,0,0.18)",
+          overflowX: "hidden",
         }}
       >
-        {/* Logo row + mobile close button */}
+        {/* Logo row */}
         <div className="flex items-center gap-3 border-b border-white/10 min-h-[64px] flex-shrink-0 px-4 py-3">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${B.gold}, ${B.goldDark})`, boxShadow: `0 4px 12px ${B.gold}60` }}
-          >🏫</div>
-          <div className="overflow-hidden flex-1">
-            <p className="font-display text-white font-bold text-sm leading-tight whitespace-nowrap">GNSHI Smart</p>
-            <p className="font-bold tracking-[0.15em] uppercase whitespace-nowrap" style={{ color: B.gold, fontSize: 9 }}>Attendance System</p>
-          </div>
-          {/* X button — mobile only */}
+          <img src="/gnshi-logo.png" alt="GNSHI Logo" className="w-10 h-10 object-contain flex-shrink-0 drop-shadow-md" />
+          {!isDesktopCollapsed && (
+            <div className="overflow-hidden flex-1 min-w-0">
+              <p className="font-display text-white font-bold text-sm leading-tight whitespace-nowrap">GNSHI Smart</p>
+              <p className="font-bold tracking-[0.15em] uppercase whitespace-nowrap" style={{ color: B.gold, fontSize: 9 }}>
+                Attendance System
+              </p>
+            </div>
+          )}
+          {!isDesktopCollapsed && (
+            <button
+              onClick={() => setIsDesktopCollapsed(true)}
+              className="hidden md:flex flex-shrink-0 w-8 h-8 rounded-lg items-center justify-center transition-all duration-200 active:scale-95"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+              title="Collapse sidebar"
+            >
+              <Ic.close className="w-4 h-4 text-white" />
+            </button>
+          )}
           <button
             onClick={() => setSideOpen(false)}
-            className="md:hidden flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+            className="md:hidden flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
             style={{ background: "rgba(255,255,255,0.10)" }}
           >
             <Ic.close className="w-4 h-4 text-white" />
@@ -683,19 +748,33 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
         </div>
 
         {/* User chip */}
-        <div className="px-3 py-3 flex-shrink-0">
-          <div className="bg-white/8 rounded-xl px-3 py-2.5">
-            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/40">Signed in as</p>
-            <p className="text-white font-semibold text-sm mt-0.5 truncate">{user.name}</p>
-            <span
-              className="inline-block mt-1 text-[9px] font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full"
-              style={{ background: `${B.gold}30`, color: B.gold, border: `1px solid ${B.gold}50` }}
-            >{user.role}</span>
+        {!isDesktopCollapsed && (
+          <div className="px-3 py-3 flex-shrink-0">
+            <div className="bg-white/8 rounded-xl px-3 py-2.5">
+              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/40">Signed in as</p>
+              <p className="text-white font-semibold text-sm mt-0.5 truncate">{user.name}</p>
+              <span
+                className="inline-block mt-1 text-[9px] font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full"
+                style={{ background: `${B.gold}30`, color: B.gold, border: `1px solid ${B.gold}50` }}
+              >{user.role}</span>
+            </div>
           </div>
-        </div>
+        )}
+
+        {isDesktopCollapsed && (
+          <div className="flex justify-center py-3 flex-shrink-0">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+              style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})`, boxShadow: `0 2px 8px ${B.maroon}60`, border: `2px solid ${B.gold}60` }}
+              title={user.name}
+            >
+              {user.name?.[0] || "?"}
+            </div>
+          </div>
+        )}
 
         {/* Today's event banner */}
-        {todayEvent && user.role !== "admin" && (
+        {!isDesktopCollapsed && todayEvent && user.role !== "admin" && (
           <div className="px-3 pb-2 flex-shrink-0">
             <button
               onClick={() => {
@@ -705,7 +784,7 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
                   if (window.innerWidth < 768) setSideOpen(false);
                 }
               }}
-              className="w-full text-left rounded-xl px-3 py-2.5 transition-all"
+              className="w-full text-left rounded-xl px-3 py-2.5 transition-all duration-200 hover:brightness-110"
               style={{ background: `${B.gold}22`, border: `1px solid ${B.gold}50` }}
             >
               <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: B.goldDark }}>Today's Event</p>
@@ -719,32 +798,48 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
           </div>
         )}
 
-        {/* Nav */}
+        {/* ── Nav ── */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2 space-y-0.5 hide-scrollbar">
-          {navItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => handleNavClick(id)}
-              className="w-full flex items-center gap-2.5 rounded-xl border-0 cursor-pointer transition-all"
-              style={{
-                padding: "10px 12px",
-                background: activeTab === id ? `linear-gradient(135deg, ${B.gold}, ${B.goldDark})` : "transparent",
-                color: activeTab === id ? B.maroonDark : "rgba(255,255,255,0.65)",
-              }}
-            >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              <span className="flex-1 text-left text-sm font-semibold whitespace-nowrap">{label}</span>
-            </button>
-          ))}
+
+          {/* Main nav items — nav-hover-lines applied */}
+          {navItems.map(({ id, label, icon: Icon }) => {
+            const isActive = activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => handleNavClick(id)}
+                title={isDesktopCollapsed ? label : undefined}
+                className={`
+                  nav-hover-lines
+                  w-full flex items-center rounded-xl border-0 cursor-pointer
+                  transition-colors duration-200 active:scale-[0.97]
+                  ${isDesktopCollapsed ? "justify-center px-0 py-3" : "gap-2.5 px-3 py-2.5"}
+                  ${isActive ? "nav-active" : ""}
+                `}
+                style={{
+                  background: isActive
+                    ? `linear-gradient(135deg, ${B.gold}, ${B.goldDark})`
+                    : "transparent",
+                  color: isActive ? B.maroonDark : "rgba(255,255,255,0.65)",
+                }}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {!isDesktopCollapsed && (
+                  <span className="flex-1 text-left text-sm font-semibold whitespace-nowrap">{label}</span>
+                )}
+              </button>
+            );
+          })}
 
           {/* My Subjects — subject teacher */}
-          {user.role !== "admin" && myAssignments.length > 0 && (
+          {!isDesktopCollapsed && user.role !== "admin" && myAssignments.length > 0 && (
             <div className="mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-              <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>
+              <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-2"
+                style={{ color: "rgba(255,255,255,0.35)" }}>
                 My Subjects
               </p>
               {myAssignments.map(assignment => {
-                const tabId = `subject_${assignment.id}`;
+                const tabId    = `subject_${assignment.id}`;
                 const isActive = activeTab === tabId;
                 return (
                   <button
@@ -754,16 +849,28 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
                       setSelectedClassId(assignment.classId);
                       if (window.innerWidth < 768) setSideOpen(false);
                     }}
-                    className="w-full flex items-start gap-2.5 rounded-xl border-0 cursor-pointer transition-all text-left px-3 py-2.5 mb-0.5"
+                    className={`
+                      nav-hover-lines
+                      w-full flex items-start gap-2.5 rounded-xl border-0 cursor-pointer
+                      text-left px-3 py-2.5 mb-0.5
+                      transition-colors duration-200 active:scale-[0.97]
+                      ${isActive ? "nav-active" : ""}
+                    `}
                     style={{
-                      background: isActive ? `linear-gradient(135deg, ${B.gold}, ${B.goldDark})` : "rgba(255,255,255,0.06)",
+                      background: isActive
+                        ? `linear-gradient(135deg, ${B.gold}, ${B.goldDark})`
+                        : "rgba(255,255,255,0.06)",
                       color: isActive ? B.maroonDark : "rgba(255,255,255,0.75)",
                     }}
                   >
-                    <Ic.book className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: isActive ? B.maroonDark : "rgba(255,255,255,0.5)" }} />
+                    <Ic.book
+                      className="w-4 h-4 flex-shrink-0 mt-0.5"
+                      style={{ color: isActive ? B.maroonDark : "rgba(255,255,255,0.5)" }}
+                    />
                     <div className="overflow-hidden min-w-0">
                       <p className="text-xs font-bold truncate leading-tight">{assignment.subjectName}</p>
-                      <p className="text-[10px] font-medium truncate mt-0.5" style={{ color: isActive ? `${B.maroonDark}99` : "rgba(255,255,255,0.45)" }}>
+                      <p className="text-[10px] font-medium truncate mt-0.5"
+                        style={{ color: isActive ? `${B.maroonDark}99` : "rgba(255,255,255,0.45)" }}>
                         Gr.{assignment.grade} — {assignment.section}
                       </p>
                     </div>
@@ -774,12 +881,18 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
           )}
 
           {/* Grade accordions */}
-          {Object.keys(gradeMap).sort((a, b) => parseInt(a) - parseInt(b)).map(grade => (
+          {!isDesktopCollapsed && Object.keys(gradeMap).sort((a, b) => parseInt(a) - parseInt(b)).map(grade => (
             <div key={grade}>
+              {/* Grade toggle — nav-hover-lines, no hover:bg */}
               <button
                 onClick={() => toggleGrade(grade)}
-                className="w-full flex items-center gap-2.5 rounded-xl border-0 cursor-pointer transition-all text-white/60 hover:text-white/90 hover:bg-white/6"
-                style={{ padding: "10px 12px", background: "transparent" }}
+                className="
+                  nav-hover-lines
+                  w-full flex items-center gap-2.5 rounded-xl border-0 cursor-pointer
+                  transition-colors duration-200 active:scale-[0.97]
+                  text-white/60
+                "
+                style={{ padding: "10px 12px", background: "transparent", color: "rgba(255,255,255,0.65)" }}
               >
                 <span className="text-sm flex-shrink-0">📚</span>
                 <span className="flex-1 text-left text-sm font-semibold">Grade {grade}</span>
@@ -795,7 +908,11 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
                     <button
                       key={cls.id}
                       onClick={() => handleClassClick(cls.id)}
-                      className="w-full flex items-center gap-2 rounded-lg border-0 cursor-pointer transition-all"
+                      className="
+                        nav-hover-lines
+                        w-full flex items-center gap-2 rounded-lg border-0 cursor-pointer
+                        transition-colors duration-200 active:scale-[0.97]
+                      "
                       style={{
                         padding: "8px 12px 8px 28px",
                         background: selectedClassId === cls.id ? `${B.gold}22` : "transparent",
@@ -803,11 +920,17 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
                         marginLeft: 4,
                       }}
                     >
-                      <span className="text-xs font-semibold text-left" style={{ color: selectedClassId === cls.id ? B.gold : "rgba(255,255,255,0.55)" }}>
+                      <span
+                        className="text-xs font-semibold text-left"
+                        style={{ color: selectedClassId === cls.id ? B.gold : "rgba(255,255,255,0.55)" }}
+                      >
                         {cls.section}
                       </span>
                       {cls.track && (
-                        <span className="text-[9px] rounded px-1.5 py-0.5" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.45)" }}>
+                        <span
+                          className="text-[9px] rounded px-1.5 py-0.5"
+                          style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.45)" }}
+                        >
                           {cls.strand || cls.track}
                         </span>
                       )}
@@ -817,18 +940,44 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
               </div>
             </div>
           ))}
+
+          {/* Collapsed grade icons */}
+          {isDesktopCollapsed && Object.keys(gradeMap).sort((a, b) => parseInt(a) - parseInt(b)).map(grade => (
+            <div key={grade} className="flex justify-center py-0.5">
+              <button
+                title={`Grade ${grade}`}
+                onClick={() => setIsDesktopCollapsed(false)}
+                className="nav-hover-lines w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-200 active:scale-95"
+                style={{ background: "transparent", color: "rgba(255,255,255,0.5)" }}
+              >
+                <span className="text-sm">📚</span>
+              </button>
+            </div>
+          ))}
         </nav>
 
-        {/* Footer — sign out only (collapse button removed) */}
+        {/* Footer */}
         <div className="px-2 py-3 border-t border-white/10 flex-shrink-0">
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center gap-2.5 rounded-xl border-0 cursor-pointer transition-all"
-            style={{ padding: "10px 12px", background: "transparent", color: "rgba(255,255,255,0.65)" }}
-          >
-            <Ic.logout className="w-5 h-5 flex-shrink-0" />
-            <span className="flex-1 text-left text-sm font-semibold">Sign Out</span>
-          </button>
+          {isDesktopCollapsed ? (
+            <button
+              onClick={() => setIsDesktopCollapsed(false)}
+              title="Expand sidebar"
+              className="nav-hover-lines w-full flex items-center justify-center rounded-xl border-0 cursor-pointer transition-colors duration-200 active:scale-95 py-2.5"
+              style={{ background: "transparent", color: "rgba(255,255,255,0.65)" }}
+            >
+              <Ic.menu className="w-5 h-5" />
+            </button>
+          ) : (
+            /* Sign Out — nav-hover-lines, hover:bg removed */
+            <button
+              onClick={onLogout}
+              className="nav-hover-lines w-full flex items-center gap-2.5 rounded-xl border-0 cursor-pointer transition-colors duration-200 active:scale-[0.97]"
+              style={{ padding: "10px 12px", background: "transparent", color: "rgba(255,255,255,0.65)" }}
+            >
+              <Ic.logout className="w-5 h-5 flex-shrink-0" />
+              <span className="flex-1 text-left text-sm font-semibold">Sign Out</span>
+            </button>
+          )}
         </div>
       </aside>
     </>
@@ -838,19 +987,19 @@ function Sidebar({ user, classes, selectedClassId, setSelectedClassId, activeTab
 // ─── TOP HEADER ───────────────────────────────────────────────────────────────
 function TopHeader({ user, activeTab, selectedClass, suspended, sy, setSy, quarter, setQuarter, onUpdateSyQuarter, onMenuClick }) {
   const tabTitles = {
-    dashboard: "Dashboard",
-    scan: "Attendance",
-    sf2: "SF2 Report",
-    students: "Students",
-    qr: "QR Codes",
-    settings: "Settings",
-    calendar: "Calendar",
-    staff: "Staff",
+    dashboard:  "Dashboard",
+    scan:       "Attendance",
+    sf2:        "SF2 Report",
+    students:   "Students",
+    qr:         "QR Codes",
+    settings:   "Settings",
+    calendar:   "Calendar",
+    staff:      "Staff",
     masterlist: "Master List",
-    subjects: "Subjects",
+    subjects:   "Subjects",
   };
 
-  const title = tabTitles[activeTab] || "GNSHI SAMS";
+  const title    = tabTitles[activeTab] || "GNSHI SAMS";
   const subtitle = (activeTab === "scan" || activeTab === "sf2" || activeTab === "students") && selectedClass
     ? `Grade ${selectedClass.grade} — ${selectedClass.section}`
     : null;
@@ -863,10 +1012,10 @@ function TopHeader({ user, activeTab, selectedClass, suspended, sy, setSy, quart
       {/* ── Main row ── */}
       <div className="flex items-center gap-2 px-3 md:px-6 h-14 md:h-16">
 
-        {/* Hamburger — mobile only */}
+        {/* Hamburger — nav-hover-lines, no hover:bg */}
         <button
           onClick={onMenuClick}
-          className="md:hidden flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+          className="nav-hover-lines md:hidden flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-colors duration-200 active:scale-95"
           style={{ background: B.maroonFade, color: B.maroon }}
           aria-label="Open menu"
         >
@@ -875,10 +1024,15 @@ function TopHeader({ user, activeTab, selectedClass, suspended, sy, setSy, quart
 
         {/* Title block */}
         <div className="flex-1 min-w-0">
-          <h1 className="font-display font-bold tracking-tight leading-tight truncate text-base md:text-lg" style={{ color: B.maroonDark }}>
+          <h1
+            className="font-display font-bold tracking-tight leading-tight truncate text-base md:text-lg"
+            style={{ color: B.maroonDark }}
+          >
             {title}
             {subtitle && (
-              <span className="ml-2 text-xs font-semibold text-slate-400 hidden sm:inline">{subtitle}</span>
+              <span className="ml-2 text-xs font-semibold text-slate-400 hidden sm:inline">
+                {subtitle}
+              </span>
             )}
           </h1>
           {subtitle && (
@@ -886,54 +1040,82 @@ function TopHeader({ user, activeTab, selectedClass, suspended, sy, setSy, quart
           )}
           <p className="text-[10px] md:text-xs text-slate-400 hidden sm:block">
             {TODAY.toLocaleDateString("en-PH", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-            {suspended && <span className="ml-2 font-bold" style={{ color: B.maroon }}>🚨 SUSPENDED</span>}
+            {suspended && (
+              <span className="ml-2 font-bold" style={{ color: B.maroon }}>🚨 SUSPENDED</span>
+            )}
           </p>
         </div>
 
         {/* Right controls */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {/* SY dropdown */}
-          <div className="relative">
+
+          {/* SY dropdown — nav-hover-lines wrapper */}
+          <div className="relative group">
             <select
               value={sy}
               onChange={e => { setSy(e.target.value); onUpdateSyQuarter(e.target.value, quarter); }}
-              className="appearance-none h-8 md:h-9 pl-2 pr-5 md:pl-3 md:pr-7 rounded-lg text-[10px] md:text-xs font-bold outline-none cursor-pointer border border-slate-200 bg-slate-50 text-slate-700"
+              className="
+                nav-hover-lines
+                appearance-none h-8 md:h-9 pl-2 pr-5 md:pl-3 md:pr-7 rounded-lg
+                text-[10px] md:text-xs font-bold outline-none cursor-pointer
+                border border-slate-200 bg-slate-50 text-slate-700
+                transition-colors duration-200
+                focus:border-maroon/60 focus:ring-2 focus:ring-maroon/10
+              "
             >
               {SY_OPTIONS.map(s => <option key={s}>SY {s}</option>)}
             </select>
             <Ic.chevDown className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
           </div>
 
-          {/* Quarter dropdown */}
-          <div className="relative">
+          {/* Quarter dropdown — nav-hover-lines wrapper */}
+          <div className="relative group">
             <select
               value={quarter}
               onChange={e => { setQuarter(e.target.value); onUpdateSyQuarter(sy, e.target.value); }}
-              className="appearance-none h-8 md:h-9 pl-2 pr-5 md:pl-3 md:pr-7 rounded-lg text-[10px] md:text-xs font-bold outline-none cursor-pointer"
-              style={{ background: `${B.gold}18`, border: `1.5px solid ${B.gold}55`, color: B.goldDark }}
+              className="
+                nav-hover-lines
+                appearance-none h-8 md:h-9 pl-2 pr-5 md:pl-3 md:pr-7 rounded-lg
+                text-[10px] md:text-xs font-bold outline-none cursor-pointer
+                transition-colors duration-200
+                focus:ring-2 focus:ring-yellow-300/40
+              "
+              style={{
+                background: `${B.gold}18`,
+                border: `1.5px solid ${B.gold}55`,
+                color: B.goldDark,
+              }}
             >
               {QUARTER_OPTIONS.map(q => <option key={q}>{q}</option>)}
             </select>
-            <Ic.chevDown className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: B.goldDark }} />
+            <Ic.chevDown
+              className="w-3 h-3 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: B.goldDark }}
+            />
           </div>
 
           {/* Avatar */}
           <div
-            className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})`, boxShadow: `0 2px 8px ${B.maroon}40` }}
+            className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 cursor-default transition-all duration-200 hover:scale-105 active:scale-95"
+            style={{
+              background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})`,
+              boxShadow: `0 2px 8px ${B.maroon}40`,
+            }}
+            title={user.name}
           >
             {user.name?.[0] || "?"}
           </div>
         </div>
       </div>
 
-      {/* ── Mobile date + suspension row ── */}
+      {/* Mobile date + suspension row */}
       <div className="sm:hidden px-3 pb-2 flex items-center justify-between gap-2">
         <p className="text-[10px] text-slate-400">
           {TODAY.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" })}
         </p>
         {suspended && (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: B.maroonFade, color: B.maroon }}>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{ background: B.maroonFade, color: B.maroon }}>
             🚨 Suspended
           </span>
         )}
@@ -1705,9 +1887,11 @@ function ScannerView({ classInfo, classStudents, attendance, suspended, showToas
             </div>
           )}
 
-          <Btn variant="primary"
+          <Btn
+            variant="primary"
             onClick={() => { setSessionActive(true); setScanned({}); setTimeout(() => inputRef.current?.focus(), 100); }}
-            className="w-full h-12">
+            className="btn-fluid-gold w-full h-12"
+          >
             ▶ Start Session
           </Btn>
         </div>
@@ -1791,8 +1975,8 @@ function ScannerView({ classInfo, classStudents, attendance, suspended, showToas
             </div>
           )}
 
-          <Btn variant="primary" onClick={endSession} className="w-full h-12">
-            ⏹ End Session & Mark Absences
+          <Btn variant="primary" onClick={endSession} className="btn-fluid-gold w-full h-12">
+            ⏹ End Session &amp; Mark Absences
           </Btn>
         </div>
       )}
@@ -2272,9 +2456,9 @@ function SF2View({ classInfo, classStudents, attendance, showToast, sy, isArchiv
             style={{ color: B.maroonDark }}>
             {MONTHS.map(m => <option key={m}>{m}</option>)}
           </select>
-          <Btn variant="primary" size="sm" onClick={exportCSV}>
-            <Ic.download className="w-4 h-4" /> Export CSV
-          </Btn>
+          <Btn variant="primary" size="sm" onClick={exportCSV} className="btn-fluid-gold">
+            <Ic.download className="w-4 h-4" /> Export CSV
+          </Btn>
         </div>
       </div>
 
@@ -2510,7 +2694,7 @@ function QRPrintPage({ allClasses, allStudents }) {
               {sectionLabels ? ` · ${sectionLabels}` : ""} · LRN-based QR codes
             </p>
           </div>
-          <Btn variant="primary" onClick={handleSecurePrint}>
+          <Btn variant="primary" onClick={handleSecurePrint} className="btn-fluid-gold">
             <Ic.print className="w-5 h-5" /> Print A4 Sheet
           </Btn>
         </div>
@@ -2809,7 +2993,7 @@ function StaffAccountManager({ allClasses, showToast }) {
               </div>
             </div>
 
-            <Btn variant="primary" disabled={saving} onClick={handleCreate} className="w-full h-11">
+            <Btn variant="primary" disabled={saving} onClick={handleCreate} className="btn-fluid-gold w-full h-11">
               {saving ? "Creating Account…" : "Create Account"}
             </Btn>
           </div>
@@ -3005,7 +3189,7 @@ function SchoolSettings({ showToast }) {
               onChange={e => nsf("section", e.target.value)}
               placeholder=" "
             />
-            <Btn variant="primary" onClick={createSection} className="w-full h-11">
+            <Btn variant="primary" onClick={createSection} className="btn-fluid-gold w-full h-11">
               Create Section
             </Btn>
           </div>
@@ -3789,8 +3973,13 @@ function SubjectAssignment({ allClasses, showToast }) {
 
       {/* Save */}
       <div className="flex justify-end">
-        <Btn variant="primary" size="lg" disabled={saving || !selSubject || !selClass || !selTeacher}
-          onClick={handleSave}>
+        <Btn
+          variant="primary"
+          size="lg"
+          disabled={saving || !selSubject || !selClass || !selTeacher}
+          onClick={handleSave}
+          className="btn-fluid-gold"
+        >
           {saving ? "Saving…" : "💾 Save Assignment"}
         </Btn>
       </div>
@@ -4062,6 +4251,7 @@ export default function App() {
   const [sy, setSy] = useState("2024-2025");
   const [quarter, setQuarter] = useState("Q3");
   const [sideOpen, setSideOpen] = useState(true);
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState([]);
 
   const showToast = useCallback((msg, type = "success") => {
@@ -4291,6 +4481,8 @@ const list = students[selectedClassId] || [];
         onLogout={handleLogout}
         calendarEvents={calendarEvents}
         myAssignments={myAssignments}
+        isDesktopCollapsed={isDesktopCollapsed}
+        setIsDesktopCollapsed={setIsDesktopCollapsed}
       />
 
       <div id="app-content" className="flex-1 flex flex-col overflow-hidden min-w-0">
