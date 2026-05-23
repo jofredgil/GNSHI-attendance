@@ -934,191 +934,524 @@ function TopHeader({ user, activeTab, selectedClass, suspended, sy, setSy, quart
   );
 }
 
+// ─── LINE CHART ───────────────────────────────────────────────────────────────
+function LineChart({ data, height = 160 }) {
+  if (!data || data.length < 2) return (
+    <div className="flex items-center justify-center text-slate-400 text-sm" style={{ height }}>
+      Not enough data yet
+    </div>
+  );
+
+  const W        = 560;
+  const H        = height;
+  const padL     = 32;
+  const padR     = 12;
+  const padT     = 16;
+  const padB     = 28;
+  const innerW   = W - padL - padR;
+  const innerH   = H - padT - padB;
+
+  const values   = data.map(d => d.value);
+  const minV     = Math.max(0,   Math.min(...values) - 5);
+  const maxV     = Math.min(100, Math.max(...values) + 5);
+  const rangeV   = maxV - minV || 1;
+
+  const toX = (i) => padL + (i / (data.length - 1)) * innerW;
+  const toY = (v) => padT + innerH - ((v - minV) / rangeV) * innerH;
+
+  const points = data.map((d, i) => `${toX(i)},${toY(d.value)}`).join(" ");
+
+  // Filled area path
+  const area = [
+    `M ${toX(0)},${toY(data[0].value)}`,
+    ...data.slice(1).map((d, i) => `L ${toX(i + 1)},${toY(d.value)}`),
+    `L ${toX(data.length - 1)},${padT + innerH}`,
+    `L ${toX(0)},${padT + innerH}`,
+    "Z",
+  ].join(" ");
+
+  // Y-axis guide lines
+  const guides = [0, 25, 50, 75, 100].filter(v => v >= minV && v <= maxV);
+
+  return (
+    <div className="overflow-x-auto">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", minWidth: 280 }}
+        role="img"
+        aria-label="Attendance trend line chart"
+      >
+        {/* Guide lines */}
+        {guides.map(g => (
+          <g key={g}>
+            <line
+              x1={padL} y1={toY(g)} x2={W - padR} y2={toY(g)}
+              stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4 3"
+            />
+            <text x={padL - 4} y={toY(g) + 3.5} textAnchor="end" fontSize={8} fill="#94A3B8">
+              {g}%
+            </text>
+          </g>
+        ))}
+
+        {/* Gradient fill */}
+        <defs>
+          <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="#7B1113" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#7B1113" stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill="url(#lineGrad)" />
+
+        {/* Line */}
+        <polyline
+          points={points}
+          fill="none"
+          stroke={B.maroon}
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {/* Dots + labels */}
+        {data.map((d, i) => (
+          <g key={i}>
+            <circle
+              cx={toX(i)} cy={toY(d.value)} r={3.5}
+              fill="white" stroke={B.maroon} strokeWidth="2"
+            />
+            <text
+              x={toX(i)} y={padT + innerH + 16}
+              textAnchor="middle" fontSize={8} fill={B.slate}
+              fontWeight="600"
+            >
+              {d.label}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+// ─── PIE CHART ────────────────────────────────────────────────────────────────
+function PieChart({ slices, size = 140 }) {
+  // slices: [{ label, value, color }]
+  const total = slices.reduce((s, d) => s + d.value, 0);
+
+  if (total === 0) return (
+    <div className="flex items-center justify-center text-slate-400 text-sm" style={{ height: size }}>
+      No data yet
+    </div>
+  );
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const r  = size / 2 - 8;
+  const ri = r * 0.52; // inner radius for donut hole
+
+  // Build arc paths
+  let cursor = -Math.PI / 2; // start at 12 o'clock
+  const arcs = slices.map(slice => {
+    const angle  = (slice.value / total) * 2 * Math.PI;
+    const startA = cursor;
+    const endA   = cursor + angle;
+    cursor       = endA;
+
+    const x1 = cx + r  * Math.cos(startA);
+    const y1 = cy + r  * Math.sin(startA);
+    const x2 = cx + r  * Math.cos(endA);
+    const y2 = cy + r  * Math.sin(endA);
+    const ix1 = cx + ri * Math.cos(endA);
+    const iy1 = cy + ri * Math.sin(endA);
+    const ix2 = cx + ri * Math.cos(startA);
+    const iy2 = cy + ri * Math.sin(startA);
+
+    const large = angle > Math.PI ? 1 : 0;
+    const path  = [
+      `M ${x1} ${y1}`,
+      `A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`,
+      `L ${ix1} ${iy1}`,
+      `A ${ri} ${ri} 0 ${large} 0 ${ix2} ${iy2}`,
+      "Z",
+    ].join(" ");
+
+    return { ...slice, path, pct: Math.round((slice.value / total) * 100) };
+  });
+
+  return (
+    <div className="flex items-center gap-5 flex-wrap justify-center">
+      {/* Donut */}
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
+        {arcs.map((arc, i) => (
+          <path key={i} d={arc.path} fill={arc.color} opacity={0.9} />
+        ))}
+        {/* Centre label */}
+        <text x={cx} y={cy - 5} textAnchor="middle" fontSize={18} fontWeight="800" fill={B.maroonDark}>
+          {total}
+        </text>
+        <text x={cx} y={cy + 11} textAnchor="middle" fontSize={8} fill={B.slate} fontWeight="600">
+          TOTAL
+        </text>
+      </svg>
+
+      {/* Legend */}
+      <div className="flex flex-col gap-2 min-w-[100px]">
+        {arcs.map((arc, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span
+              className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+              style={{ background: arc.color }}
+            />
+            <span className="text-xs text-slate-500 flex-1">{arc.label}</span>
+            <span className="text-xs font-bold" style={{ color: arc.color }}>
+              {arc.value}
+              <span className="text-slate-400 font-normal ml-1">({arc.pct}%)</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 // ─── ADMIN DASHBOARD ──────────────────────────────────────────────────────────
 function AdminDashboard({ allClasses, allStudents, attendance, suspended, setSuspended, showToast, sy, quarter }) {
-  const todayStr = fmt(TODAY);
+  const todayStr = fmt(TODAY);
 
-  const todayCounts = useMemo(() => {
-    const c = { Present: 0, Late: 0, "Very Late": 0, Absent: 0 };
-    Object.values(attendance).forEach(cr => {
-      Object.values(cr[todayStr] || {}).forEach(s => { if (c[s] !== undefined) c[s]++; });
-    });
-    return c;
-  }, [attendance]);
+  // ── Today's status counts ─────────────────────────────────────────────────
+  const todayCounts = useMemo(() => {
+    const c = { Present: 0, Late: 0, "Very Late": 0, Absent: 0 };
+    Object.values(attendance).forEach(cr => {
+      Object.values(cr[todayStr] || {}).forEach(s => { if (c[s] !== undefined) c[s]++; });
+    });
+    return c;
+  }, [attendance, todayStr]);
 
-  const totalStudents = allStudents.length;
-  const presentTotal = todayCounts.Present + todayCounts.Late + todayCounts["Very Late"];
-  const rate = totalStudents > 0 ? Math.round((presentTotal / totalStudents) * 100) : 0;
+  const totalStudents = allStudents.length;
+  const presentTotal  = todayCounts.Present + todayCounts.Late + todayCounts["Very Late"];
+  const rate          = totalStudents > 0 ? Math.round((presentTotal / totalStudents) * 100) : 0;
+  const sardo         = useMemo(() => allStudents.filter(s => (s.absences || 0) >= 3).slice(0, 10), [allStudents]);
 
-  const sardo = useMemo(() => allStudents.filter(s => (s.absences || 0) >= 3).slice(0, 10), [allStudents]);
+  // ── Bar chart: per-section rate today ────────────────────────────────────
+  const sectionBarData = useMemo(() =>
+    allClasses.map(cl => {
+      const recs = attendance[cl.id]?.[todayStr] || {};
+      const vals = Object.values(recs);
+      const pres = vals.filter(v => v !== "Absent").length;
+      const tot  = vals.length || 1;
+      return { label: cl.section, value: Math.round((pres / tot) * 100) };
+    }), [allClasses, attendance, todayStr]);
 
-  const sectionBarData = useMemo(() =>
-    allClasses.map(cl => {
-      const recs = attendance[cl.id]?.[todayStr] || {};
-      const vals = Object.values(recs);
-      const pres = vals.filter(v => v !== "Absent").length;
-      const tot = vals.length || 1;
-      return { label: `${cl.section}`, value: Math.round((pres / tot) * 100) };
-    }), [allClasses, attendance]);
+  // ── Pie chart: today's status split ──────────────────────────────────────
+  const pieSlices = useMemo(() => [
+    { label: "Present",  value: todayCounts.Present,                              color: "#10B981" },
+    { label: "Late",     value: todayCounts.Late + todayCounts["Very Late"],       color: "#F59E0B" },
+    { label: "Absent",   value: todayCounts.Absent,                               color: B.maroon  },
+  ].filter(s => s.value > 0), [todayCounts]);
 
-  return (
-    <div className="fade-up space-y-6">
-      {suspended && (
-        <div className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap" style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})` }}>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🚨</span>
-            <div>
-              <p className="text-white font-semibold text-sm">Classes Suspended</p>
-              <p className="text-white/55 text-xs mt-0.5">Scanning disabled school-wide. SF2 auto-adjusted.</p>
-            </div>
-          </div>
-          <Btn variant="gold" size="sm" onClick={() => { setSuspended(false); showToast("Suspension lifted."); }}>Lift Suspension</Btn>
-        </div>
-      )}
+  // ── Line chart: school-wide attendance rate for last 10 school days ───────
+  const lineData = useMemo(() => {
+    // Collect all unique dates across all class attendance records, sorted descending
+    const dateSet = new Set();
+    Object.values(attendance).forEach(cr => Object.keys(cr).forEach(d => dateSet.add(d)));
+    const sorted = [...dateSet].sort().slice(-10); // last 10 days ascending
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4">
-        <StatCard label="Total Present" value={presentTotal} sub={`of ${totalStudents} students`} accent="#10B981" icon={<Ic.check className="w-5 h-5" />} />
-        <StatCard label="Absent Today" value={todayCounts.Absent} sub="needs follow-up" accent={B.maroon} icon={<Ic.alert className="w-5 h-5" />} />
-        <StatCard label="Late / Very Late" value={todayCounts.Late + todayCounts["Very Late"]} sub="tardy today" accent="#F59E0B" icon={<Ic.calendar className="w-5 h-5" />} />
-        <StatCard label="School-Wide Rate" value={`${rate}%`} sub={`${sy} | ${quarter}`} accent={B.blue} icon={<Ic.chart className="w-5 h-5" />} />
-        <StatCard label="Total Sections" value={allClasses.length} sub="active classes" accent="#7C3AED" icon={<Ic.book className="w-5 h-5" />} />
-        <StatCard label="SARDO Watch" value={sardo.length} sub="at-risk students" accent="#DC2626" icon={<Ic.shield className="w-5 h-5" />} />
-      </div>
+    return sorted.map(dateStr => {
+      let present = 0, total = 0;
+      Object.values(attendance).forEach(cr => {
+        const recs = cr[dateStr] || {};
+        Object.values(recs).forEach(v => {
+          total++;
+          if (v !== "Absent") present++;
+        });
+      });
+      const label = dateStr.slice(5); // "MM-DD"
+      return { label, value: total > 0 ? Math.round((present / total) * 100) : 0 };
+    });
+  }, [attendance]);
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Bar chart */}
-        <div className="xl:col-span-2 bg-white rounded-2xl p-6 border border-slate-100 shadow-card">
-          <p className="font-display text-sm font-bold mb-4" style={{ color: B.maroon }}>📊 Attendance Rate by Section — Today</p>
-          <BarChart data={sectionBarData} />
-        </div>
+  return (
+    <div className="fade-up space-y-6">
+      {/* Suspension banner */}
+      {suspended && (
+        <div className="rounded-2xl px-5 py-4 flex items-center justify-between gap-4 flex-wrap"
+          style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})` }}>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🚨</span>
+            <div>
+              <p className="text-white font-semibold text-sm">Classes Suspended</p>
+              <p className="text-white/55 text-xs mt-0.5">Scanning disabled school-wide. SF2 auto-adjusted.</p>
+            </div>
+          </div>
+          <Btn variant="gold" size="sm" onClick={() => { setSuspended(false); showToast("Suspension lifted."); }}>
+            Lift Suspension
+          </Btn>
+        </div>
+      )}
 
-        {/* Quick actions */}
-        <div className="flex flex-col gap-4">
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-card">
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: B.maroon }}>Quick Actions</p>
-            <div className="flex flex-col gap-2.5">
-              <Btn variant="primary" size="sm" disabled={suspended} onClick={() => { setSuspended(true); showToast("⛔ Classes suspended."); }} className="w-full">
-                🚨 Declare Suspension
-              </Btn>
-              <Btn variant="gold" size="sm" onClick={() => showToast("🎉 Event mode toggled!")} className="w-full">
-                🎉 Event Mode
-              </Btn>
-            </div>
-          </div>
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4">
+        <StatCard label="Total Present"    value={presentTotal}       sub={`of ${totalStudents} students`} accent="#10B981"  icon={<Ic.check   className="w-5 h-5" />} />
+        <StatCard label="Absent Today"     value={todayCounts.Absent} sub="needs follow-up"                accent={B.maroon} icon={<Ic.alert   className="w-5 h-5" />} />
+        <StatCard label="Late / Very Late" value={todayCounts.Late + todayCounts["Very Late"]} sub="tardy today" accent="#F59E0B" icon={<Ic.calendar className="w-5 h-5" />} />
+        <StatCard label="School-Wide Rate" value={`${rate}%`}         sub={`${sy} | ${quarter}`}           accent={B.blue}   icon={<Ic.chart   className="w-5 h-5" />} />
+        <StatCard label="Total Sections"   value={allClasses.length}  sub="active classes"                 accent="#7C3AED"  icon={<Ic.book    className="w-5 h-5" />} />
+        <StatCard label="SARDO Watch"      value={sardo.length}       sub="at-risk students"               accent="#DC2626"  icon={<Ic.shield  className="w-5 h-5" />} />
+      </div>
 
-          <div className="rounded-2xl p-5" style={{ background: `linear-gradient(135deg, ${B.maroonFade}, #FFF5F5)`, border: `1px solid ${B.maroon}15` }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: B.maroon }}>Active Period</p>
-            <p className="font-display text-2xl font-bold mt-1" style={{ color: B.maroonDark }}>{sy}</p>
-            <p className="text-sm font-semibold mt-1" style={{ color: B.gold }}>{quarter} — Gigaquit, SDN</p>
-          </div>
-        </div>
-      </div>
+      {/* Charts row 1: Bar + Pie */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Bar chart — section rates */}
+        <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-100 shadow-card">
+          <p className="font-display text-sm font-bold mb-1" style={{ color: B.maroon }}>
+            📊 Attendance Rate by Section — Today
+          </p>
+          <p className="text-xs text-slate-400 mb-4">Percentage of students present per section</p>
+          <BarChart data={sectionBarData} />
+        </div>
 
-      {/* SARDO Watchlist */}
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-card">
-        <div className="px-6 py-4 flex items-center justify-between flex-wrap gap-3" style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})` }}>
-          <div>
-            <p className="font-display text-white font-bold text-sm">🚨 SARDO Watchlist</p>
-            <p className="text-white/50 text-xs mt-0.5">Students at Risk of Dropping Out — 3+ absences this month</p>
-          </div>
-          <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: B.gold, color: B.maroonDark }}>{sardo.length} students</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                {["LRN", "Name", "Grade", "Section", "Absences", "Tardy", "Action"].map(h => (
-                  <th key={h} className="py-3 px-5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sardo.length === 0 ? (
-                <tr><td colSpan={7} className="py-10 text-center text-slate-400 text-sm">✅ No students at risk. Great attendance!</td></tr>
-              ) : sardo.map((s, i) => (
-                <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${i % 2 ? "bg-slate-50/40" : ""}`}>
-                  <td className="py-3.5 px-5 font-mono text-xs text-slate-400">{s.lrn}</td>
-                  <td className="py-3.5 px-5 font-semibold" style={{ color: B.maroonDark }}>{s.name}</td>
-                  <td className="py-3.5 px-5 text-xs text-slate-500">Grade {s.grade}</td>
-                  <td className="py-3.5 px-5 text-xs text-slate-500">{s.section}</td>
-                  <td className="py-3.5 px-5">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${(s.absences || 0) >= 5 ? "bg-red-100 text-maroon" : "bg-orange-100 text-orange-800"}`}>{s.absences || 0}d</span>
-                  </td>
-                  <td className="py-3.5 px-5 text-xs text-slate-500">{s.tardyCount || 0}x</td>
-                  <td className="py-3.5 px-5">
-                    <Btn variant="ghost" size="sm" onClick={() => showToast(`Notifying parent of ${s.name}...`, "info")}>Notify Parent</Btn>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+        {/* Pie chart — status split */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-card flex flex-col">
+          <p className="font-display text-sm font-bold mb-1" style={{ color: B.maroon }}>
+            🥧 Today's Attendance Split
+          </p>
+          <p className="text-xs text-slate-400 mb-4">School-wide status breakdown</p>
+          <div className="flex-1 flex items-center justify-center">
+            <PieChart slices={pieSlices} size={150} />
+          </div>
+        </div>
+      </div>
+
+      {/* Charts row 2: Line + Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Line chart — trend */}
+        <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-100 shadow-card">
+          <p className="font-display text-sm font-bold mb-1" style={{ color: B.maroon }}>
+            📈 Attendance Trend — Last {lineData.length} Days
+          </p>
+          <p className="text-xs text-slate-400 mb-4">School-wide daily attendance rate</p>
+          <LineChart data={lineData} height={160} />
+        </div>
+
+        {/* Quick actions + period card */}
+        <div className="flex flex-col gap-4">
+          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-card">
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: B.maroon }}>
+              Quick Actions
+            </p>
+            <div className="flex flex-col gap-2.5">
+              <Btn
+                variant="primary" size="sm" disabled={suspended} className="w-full"
+                onClick={() => { setSuspended(true); showToast("⛔ Classes suspended."); }}
+              >
+                🚨 Declare Suspension
+              </Btn>
+              <Btn variant="gold" size="sm" className="w-full"
+                onClick={() => showToast("🎉 Event mode toggled!")}>
+                🎉 Event Mode
+              </Btn>
+            </div>
+          </div>
+
+          <div className="rounded-2xl p-5"
+            style={{ background: `linear-gradient(135deg, ${B.maroonFade}, #FFF5F5)`, border: `1px solid ${B.maroon}15` }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: B.maroon }}>Active Period</p>
+            <p className="font-display text-2xl font-bold mt-1" style={{ color: B.maroonDark }}>{sy}</p>
+            <p className="text-sm font-semibold mt-1" style={{ color: B.gold }}>{quarter} — Gigaquit, SDN</p>
+          </div>
+        </div>
+      </div>
+
+      {/* SARDO Watchlist */}
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-card">
+        <div className="px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+          style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})` }}>
+          <div>
+            <p className="font-display text-white font-bold text-sm">🚨 SARDO Watchlist</p>
+            <p className="text-white/50 text-xs mt-0.5">Students at Risk of Dropping Out — 3+ absences</p>
+          </div>
+          <span className="text-xs font-bold px-3 py-1 rounded-full"
+            style={{ background: B.gold, color: B.maroonDark }}>
+            {sardo.length} students
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm min-w-[600px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                {["LRN", "Name", "Grade", "Section", "Absences", "Tardy", "Action"].map(h => (
+                  <th key={h} className="py-3 px-5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sardo.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-10 text-center text-slate-400 text-sm">
+                    ✅ No students at risk. Great attendance!
+                  </td>
+                </tr>
+              ) : sardo.map((s, i) => (
+                <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${i % 2 ? "bg-slate-50/40" : ""}`}>
+                  <td className="py-3.5 px-5 font-mono text-xs text-slate-400">{s.lrn}</td>
+                  <td className="py-3.5 px-5 font-semibold" style={{ color: B.maroonDark }}>{s.name}</td>
+                  <td className="py-3.5 px-5 text-xs text-slate-500">Grade {s.grade}</td>
+                  <td className="py-3.5 px-5 text-xs text-slate-500">{s.section}</td>
+                  <td className="py-3.5 px-5">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${(s.absences || 0) >= 5 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-800"}`}>
+                      {s.absences || 0}d
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-5 text-xs text-slate-500">{s.tardyCount || 0}x</td>
+                  <td className="py-3.5 px-5">
+                    <Btn variant="ghost" size="sm"
+                      onClick={() => showToast(`Notifying parent of ${s.name}...`, "info")}>
+                      Notify Parent
+                    </Btn>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── ADVISER / SUBJECT DASHBOARD ──────────────────────────────────────────────
 function AdviserDashboard({ user, classes, students, attendance, showToast, setActiveTab }) {
-  const todayStr = fmt(TODAY);
-  const myStudents = classes.flatMap(c => students[c.id] || []);
+  const todayStr   = fmt(TODAY);
+  const myStudents = useMemo(() => classes.flatMap(c => students[c.id] || []), [classes, students]);
 
-  const todayCounts = useMemo(() => {
-    const c = { Present: 0, Late: 0, "Very Late": 0, Absent: 0 };
-    classes.forEach(cl => {
-      Object.values(attendance[cl.id]?.[todayStr] || {}).forEach(s => { if (c[s] !== undefined) c[s]++; });
-    });
-    return c;
-  }, [attendance, classes]);
+  const todayCounts = useMemo(() => {
+    const c = { Present: 0, Late: 0, "Very Late": 0, Absent: 0 };
+    classes.forEach(cl => {
+      Object.values(attendance[cl.id]?.[todayStr] || {}).forEach(s => {
+        if (c[s] !== undefined) c[s]++;
+      });
+    });
+    return c;
+  }, [attendance, classes, todayStr]);
 
-  const presentTotal = todayCounts.Present + todayCounts.Late + todayCounts["Very Late"];
-  const rate = myStudents.length > 0 ? Math.round((presentTotal / myStudents.length) * 100) : 0;
+  const presentTotal = todayCounts.Present + todayCounts.Late + todayCounts["Very Late"];
+  const rate         = myStudents.length > 0 ? Math.round((presentTotal / myStudents.length) * 100) : 0;
 
-  return (
-    <div className="fade-up space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="My Sections" value={classes.length} accent={B.maroon} icon={<Ic.book className="w-5 h-5" />} />
-        <StatCard label="Total Learners" value={myStudents.length} accent={B.blue} icon={<Ic.users className="w-5 h-5" />} />
-        <StatCard label="Present Today" value={presentTotal} sub={`${rate}% rate`} accent="#10B981" icon={<Ic.check className="w-5 h-5" />} />
-        <StatCard label="Absent Today" value={todayCounts.Absent} accent={B.maroon} icon={<Ic.alert className="w-5 h-5" />} />
-      </div>
+  // SARDO: students with 3+ absences across adviser's own classes only
+  const sardo = useMemo(
+    () => myStudents.filter(s => (s.absences || 0) >= 3).slice(0, 10),
+    [myStudents]
+  );
 
-      <div className="rounded-2xl p-7 text-white" style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})` }}>
-        <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: B.gold }}>Quick Start</p>
-        <p className="font-display text-2xl font-bold">Ready to take attendance?</p>
-        <p className="text-white/55 text-sm mt-2">Select a section from the sidebar accordion and click Scan Attendance.</p>
-        <Btn variant="gold" size="md" onClick={() => setActiveTab("scan")} className="mt-5">▶ Start Scanning →</Btn>
-      </div>
+  return (
+    <div className="fade-up space-y-6">
+      {/* KPI row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="My Sections"    value={classes.length}      accent={B.maroon}  icon={<Ic.book    className="w-5 h-5" />} />
+        <StatCard label="Total Learners" value={myStudents.length}   accent={B.blue}    icon={<Ic.users   className="w-5 h-5" />} />
+        <StatCard label="Present Today"  value={presentTotal} sub={`${rate}% rate`} accent="#10B981" icon={<Ic.check   className="w-5 h-5" />} />
+        <StatCard label="Absent Today"   value={todayCounts.Absent}  accent={B.maroon}  icon={<Ic.alert   className="w-5 h-5" />} />
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {classes.map(cl => {
-          const recs = attendance[cl.id]?.[todayStr] || {};
-          const vals = Object.values(recs);
-          const pres = vals.filter(v => v !== "Absent").length;
-          const total = (students[cl.id] || []).length;
-          const r = total > 0 ? Math.round((pres / total) * 100) : 0;
-          return (
-            <div key={cl.id} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-card">
-              <div className="flex justify-between items-start gap-3">
-                <div>
-                  <p className="font-semibold text-sm" style={{ color: B.maroonDark }}>Grade {cl.grade} — {cl.section}</p>
-                  {cl.strand && <p className="text-xs text-slate-400 mt-0.5">{cl.strand}</p>}
-                </div>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${r >= 90 ? "bg-emerald-100 text-emerald-800" : r >= 80 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-700"}`}>{r}%</span>
-              </div>
-              <div className="mt-4">
-                <div className="w-full bg-slate-100 rounded-full h-1.5">
-                  <div className="h-1.5 rounded-full transition-all duration-700" style={{ width: `${r}%`, background: r >= 90 ? "#10B981" : r >= 80 ? "#F59E0B" : B.maroon }} />
-                </div>
-                <p className="text-xs text-slate-400 mt-2">{pres} present of {total} students</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+      {/* Quick-start banner */}
+      <div className="rounded-2xl p-6 text-white"
+        style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})` }}>
+        <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: B.gold }}>Quick Start</p>
+        <p className="font-display text-2xl font-bold">Ready to take attendance?</p>
+        <p className="text-white/55 text-sm mt-2">
+          Select a section from the sidebar accordion and click Scan Attendance.
+        </p>
+        <Btn variant="gold" size="md" onClick={() => setActiveTab("scan")} className="mt-5">
+          ▶ Start Scanning →
+        </Btn>
+      </div>
+
+      {/* Per-section progress cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {classes.map(cl => {
+          const recs  = attendance[cl.id]?.[todayStr] || {};
+          const vals  = Object.values(recs);
+          const pres  = vals.filter(v => v !== "Absent").length;
+          const total = (students[cl.id] || []).length;
+          const r     = total > 0 ? Math.round((pres / total) * 100) : 0;
+          return (
+            <div key={cl.id} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-card">
+              <div className="flex justify-between items-start gap-3">
+                <div>
+                  <p className="font-semibold text-sm" style={{ color: B.maroonDark }}>
+                    Grade {cl.grade} — {cl.section}
+                  </p>
+                  {cl.strand && <p className="text-xs text-slate-400 mt-0.5">{cl.strand}</p>}
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${r >= 90 ? "bg-emerald-100 text-emerald-800" : r >= 80 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-700"}`}>
+                  {r}%
+                </span>
+              </div>
+              <div className="mt-4">
+                <div className="w-full bg-slate-100 rounded-full h-1.5">
+                  <div className="h-1.5 rounded-full transition-all duration-700"
+                    style={{ width: `${r}%`, background: r >= 90 ? "#10B981" : r >= 80 ? "#F59E0B" : B.maroon }} />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">{pres} present of {total} students</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* SARDO Watchlist — adviser's students only */}
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-card">
+        <div className="px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+          style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})` }}>
+          <div>
+            <p className="font-display text-white font-bold text-sm">🚨 SARDO Watchlist</p>
+            <p className="text-white/50 text-xs mt-0.5">
+              Your students at risk of dropping out — 3+ absences
+            </p>
+          </div>
+          <span className="text-xs font-bold px-3 py-1 rounded-full"
+            style={{ background: B.gold, color: B.maroonDark }}>
+            {sardo.length} student{sardo.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm min-w-[500px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                {["LRN", "Name", "Section", "Absences", "Tardy"].map(h => (
+                  <th key={h} className="py-3 px-5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sardo.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-10 text-center text-slate-400 text-sm">
+                    ✅ None of your students are at risk. Great job!
+                  </td>
+                </tr>
+              ) : sardo.map((s, i) => (
+                <tr key={s.id || i}
+                  className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${i % 2 ? "bg-slate-50/40" : ""}`}>
+                  <td className="py-3.5 px-5 font-mono text-xs text-slate-400">{s.lrn}</td>
+                  <td className="py-3.5 px-5 font-semibold" style={{ color: B.maroonDark }}>{s.name}</td>
+                  <td className="py-3.5 px-5 text-xs text-slate-500">{s.section}</td>
+                  <td className="py-3.5 px-5">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${(s.absences || 0) >= 5 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-800"}`}>
+                      {s.absences || 0}d
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-5 text-xs text-slate-500">{s.tardyCount || 0}x</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── SCANNER VIEW ─────────────────────────────────────────────────────────────
@@ -3428,9 +3761,9 @@ function SubjectDashboard({ assignment, classInfo, classStudents, attendance, su
     const vals = Object.values(todayRec);
     return {
       present: vals.filter(v => v === "Present").length,
-      late: vals.filter(v => v === "Late" || v === "Very Late").length,
-      absent: vals.filter(v => v === "Absent").length,
-      total: classStudents.length,
+      late:    vals.filter(v => v === "Late" || v === "Very Late").length,
+      absent:  vals.filter(v => v === "Absent").length,
+      total:   classStudents.length,
     };
   }, [todayRec, classStudents]);
 
@@ -3438,92 +3771,105 @@ function SubjectDashboard({ assignment, classInfo, classStudents, attendance, su
     ? Math.round(((todayCounts.present + todayCounts.late) / todayCounts.total) * 100)
     : 0;
 
+  // SARDO: only students in this subject's class with 3+ absences
+  const sardo = useMemo(
+    () => classStudents.filter(s => (s.absences || 0) >= 3).slice(0, 10),
+    [classStudents]
+  );
+
+  // Pie chart slices for this subject
+  const pieSlices = useMemo(() => [
+    { label: "Present", value: todayCounts.present, color: "#10B981" },
+    { label: "Late",    value: todayCounts.late,    color: "#F59E0B" },
+    { label: "Absent",  value: todayCounts.absent,  color: B.maroon  },
+  ].filter(s => s.value > 0), [todayCounts]);
+
   return (
     <div className="fade-up space-y-6">
       {/* Subject header */}
-      <div
-        className="rounded-2xl p-6 text-white"
-        style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})` }}
-      >
+      <div className="rounded-2xl p-6 text-white"
+        style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})` }}>
         <p className="text-[10px] font-bold uppercase tracking-widest text-white/45 mb-1">Subject Period</p>
         <h2 className="font-display text-2xl font-bold leading-tight">{assignment.subjectName}</h2>
         <p className="text-sm font-semibold mt-1" style={{ color: B.gold }}>
           Grade {assignment.grade} — {assignment.section}
         </p>
 
-        {/* Mini KPI row */}
+        {/* Mini KPI chips */}
         <div className="grid grid-cols-4 gap-3 mt-5">
           {[
-            { label: "Total", value: todayCounts.total, color: "rgba(255,255,255,0.7)" },
+            { label: "Total",   value: todayCounts.total,   color: "rgba(255,255,255,0.7)" },
             { label: "Present", value: todayCounts.present, color: "#6EE7B7" },
             { label: "Late",    value: todayCounts.late,    color: "#FCD34D" },
             { label: "Absent",  value: todayCounts.absent,  color: "#FCA5A5" },
           ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              className="rounded-xl px-3 py-2.5 text-center"
-              style={{ background: "rgba(255,255,255,0.1)" }}
-            >
+            <div key={label} className="rounded-xl px-3 py-2.5 text-center"
+              style={{ background: "rgba(255,255,255,0.1)" }}>
               <p className="font-display text-xl font-bold" style={{ color }}>{value}</p>
               <p className="text-[10px] font-bold uppercase tracking-wider mt-0.5 text-white/50">{label}</p>
             </div>
           ))}
         </div>
 
-        {/* Attendance rate bar */}
+        {/* Rate bar */}
         <div className="mt-4">
           <div className="flex justify-between items-center mb-1.5">
             <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Today's Rate</p>
             <p className="text-xs font-bold text-white/70">{rate}%</p>
           </div>
           <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{
-                width: `${rate}%`,
-                background: rate >= 90 ? "#10B981" : rate >= 75 ? "#F59E0B" : "#EF4444",
-              }}
-            />
+            <div className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${rate}%`, background: rate >= 90 ? "#10B981" : rate >= 75 ? "#F59E0B" : "#EF4444" }} />
           </div>
         </div>
       </div>
 
-      {/* Scanner section */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
-        <div
-          className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
-          style={{ background: "#F8F7F5" }}
-        >
-          <p className="font-display text-sm font-bold" style={{ color: B.maroon }}>
-            📷 Take Attendance
+      {/* Pie chart + Scanner side-by-side on larger screens */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Pie */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-card flex flex-col">
+          <p className="font-display text-sm font-bold mb-1" style={{ color: B.maroon }}>
+            🥧 Today's Split
           </p>
-          <span className="text-xs text-slate-400 font-medium">{todayStr}</span>
+          <p className="text-xs text-slate-400 mb-4">Attendance breakdown for this subject</p>
+          <div className="flex-1 flex items-center justify-center">
+            <PieChart slices={pieSlices} size={130} />
+          </div>
         </div>
-        <div className="p-5">
-          {classInfo ? (
-            <ScannerView
-              classInfo={classInfo}
-              classStudents={classStudents}
-              attendance={attendance}
-              suspended={suspended}
-              showToast={showToast}
-              isArchived={isArchived}
-            />
-          ) : (
-            <div className="text-center py-10 text-slate-400">
-              <p className="text-3xl mb-3">⏳</p>
-              <p className="text-sm font-medium">Loading class information…</p>
-            </div>
-          )}
+
+        {/* Scanner */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between"
+            style={{ background: "#F8F7F5" }}>
+            <p className="font-display text-sm font-bold" style={{ color: B.maroon }}>
+              📷 Take Attendance
+            </p>
+            <span className="text-xs text-slate-400 font-medium">{todayStr}</span>
+          </div>
+          <div className="p-5">
+            {classInfo ? (
+              <ScannerView
+                classInfo={classInfo}
+                classStudents={classStudents}
+                attendance={attendance}
+                suspended={suspended}
+                showToast={showToast}
+                isArchived={isArchived}
+              />
+            ) : (
+              <div className="text-center py-10 text-slate-400">
+                <p className="text-3xl mb-3">⏳</p>
+                <p className="text-sm font-medium">Loading class information…</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Student list for this subject */}
+      {/* Class roster */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <p className="font-display text-sm font-bold" style={{ color: B.maroon }}>
-            Class Roster
-          </p>
+          <p className="font-display text-sm font-bold" style={{ color: B.maroon }}>Class Roster</p>
           <span className="text-xs text-slate-400">{classStudents.length} students</span>
         </div>
         <div className="overflow-x-auto">
@@ -3545,10 +3891,8 @@ function SubjectDashboard({ assignment, classInfo, classStudents, attendance, su
               ) : classStudents.map((s, i) => {
                 const status = todayRec[s.lrn];
                 return (
-                  <tr
-                    key={s.id}
-                    className={`border-b border-slate-50 hover:bg-slate-50/60 transition-colors ${i % 2 ? "bg-slate-50/30" : ""}`}
-                  >
+                  <tr key={s.id}
+                    className={`border-b border-slate-50 hover:bg-slate-50/60 transition-colors ${i % 2 ? "bg-slate-50/30" : ""}`}>
                     <td className="py-3.5 px-5 text-xs text-slate-400">{i + 1}</td>
                     <td className="py-3.5 px-5 font-mono text-xs text-slate-400">{s.lrn}</td>
                     <td className="py-3.5 px-5 font-semibold" style={{ color: B.maroonDark }}>{s.name}</td>
@@ -3558,12 +3902,60 @@ function SubjectDashboard({ assignment, classInfo, classStudents, attendance, su
                     <td className="py-3.5 px-5">
                       {status
                         ? <StatusPill status={status} />
-                        : <span className="text-slate-300 text-sm font-medium">—</span>
-                      }
+                        : <span className="text-slate-300 text-sm font-medium">—</span>}
                     </td>
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* SARDO Watchlist — this subject's class only */}
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-card">
+        <div className="px-6 py-4 flex items-center justify-between flex-wrap gap-3"
+          style={{ background: `linear-gradient(135deg, ${B.maroon}, ${B.maroonDark})` }}>
+          <div>
+            <p className="font-display text-white font-bold text-sm">🚨 SARDO Watchlist</p>
+            <p className="text-white/50 text-xs mt-0.5">
+              At-risk learners in this class — 3+ absences
+            </p>
+          </div>
+          <span className="text-xs font-bold px-3 py-1 rounded-full"
+            style={{ background: B.gold, color: B.maroonDark }}>
+            {sardo.length} student{sardo.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm min-w-[400px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                {["LRN", "Name", "Absences", "Tardy"].map(h => (
+                  <th key={h} className="py-3 px-5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sardo.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-10 text-center text-slate-400 text-sm">
+                    ✅ No at-risk students in this class.
+                  </td>
+                </tr>
+              ) : sardo.map((s, i) => (
+                <tr key={s.id || i}
+                  className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${i % 2 ? "bg-slate-50/40" : ""}`}>
+                  <td className="py-3.5 px-5 font-mono text-xs text-slate-400">{s.lrn}</td>
+                  <td className="py-3.5 px-5 font-semibold" style={{ color: B.maroonDark }}>{s.name}</td>
+                  <td className="py-3.5 px-5">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${(s.absences || 0) >= 5 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-800"}`}>
+                      {s.absences || 0}d
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-5 text-xs text-slate-500">{s.tardyCount || 0}x</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
