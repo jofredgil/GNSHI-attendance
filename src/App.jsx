@@ -298,7 +298,7 @@ const QUARTER_OPTIONS = ["Q1", "Q2", "Q3", "Q4"];
 const TRACKS = ["Academic", "TVL"];
 const STRANDS = {
   Academic: ["STEM", "HUMSS", "ABM", "GAS"],
-  TVL: ["Agri-crops", "Food Processing", "Bread & Pastry", "Electrical", "Hairdressing", "CSS"],
+  TVL: ["Agri-crops", "Food Processing", "Bread & Pastry", "Electrical", "Hairdressing", "CSS", "Automotive Servicing"],
 };
 const GRADE_LEVELS = ["7", "8", "9", "10", "11", "12"];
 const TODAY = new Date();
